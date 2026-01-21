@@ -16,7 +16,7 @@ from app.database import Database
 # Import routers
 from app.routers import auth, appointments, clients, services, staff, businesses
 from app.routers import availability, scheduling, equipment, notifications, payments, voice
-from app.routers import portal
+from app.routers import portal, analytics
 
 # Configure logging
 logging.basicConfig(
@@ -81,6 +81,9 @@ api_v1.include_router(voice.router, prefix="/voice", tags=["Voice AI"])
 
 # Portal router (public endpoints)
 api_v1.include_router(portal.router, prefix="/portal", tags=["Public Portal"])
+
+# Analytics router
+api_v1.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 
 # Include versioned router
 app.include_router(api_v1)

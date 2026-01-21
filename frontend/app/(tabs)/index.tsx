@@ -226,14 +226,14 @@ export default function DashboardScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/appointment/create')}>
               <View style={[styles.actionIcon, { backgroundColor: Colors.primary + '20' }]}>
                 <Ionicons name="add" size={24} color={Colors.primary} />
               </View>
               <Text style={styles.actionText}>New Appointment</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/client/create')}>
               <View style={[styles.actionIcon, { backgroundColor: Colors.success + '20' }]}>
                 <Ionicons name="person-add" size={24} color={Colors.success} />
               </View>
@@ -247,7 +247,7 @@ export default function DashboardScreen() {
               <Text style={styles.actionText}>Create Invoice</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/analytics')}>
               <View style={[styles.actionIcon, { backgroundColor: Colors.info + '20' }]}>
                 <Ionicons name="bar-chart" size={24} color={Colors.info} />
               </View>
