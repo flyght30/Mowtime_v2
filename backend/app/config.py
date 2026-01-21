@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     FIREBASE_PROJECT_ID: Optional[str] = None
     FIREBASE_CREDENTIALS_PATH: Optional[str] = None
 
+    # SendGrid (Phase 1E)
+    SENDGRID_API_KEY: Optional[str] = None
+    SENDGRID_FROM_EMAIL: str = "noreply@servicepro.app"
+    SENDGRID_FROM_NAME: str = "ServicePro"
+
     # ElevenLabs (Phase 2)
     ELEVENLABS_API_KEY: Optional[str] = None
 

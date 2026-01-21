@@ -114,6 +114,7 @@ from app.routers.equipment import router as equipment_router
 from app.routers.appointments import router as appointments_router
 from app.routers.availability import router as availability_router
 from app.routers.scheduling import router as scheduling_router
+from app.routers.notifications import router as notifications_router
 
 # API v1 routers
 app.include_router(auth_router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
@@ -125,6 +126,7 @@ app.include_router(equipment_router, prefix=f"{settings.API_V1_PREFIX}/equipment
 app.include_router(appointments_router, prefix=f"{settings.API_V1_PREFIX}/appointments", tags=["Appointments"])
 app.include_router(availability_router, prefix=f"{settings.API_V1_PREFIX}/availability", tags=["Availability"])
 app.include_router(scheduling_router, prefix=f"{settings.API_V1_PREFIX}/scheduling", tags=["Scheduling"])
+app.include_router(notifications_router, prefix=f"{settings.API_V1_PREFIX}/notifications", tags=["Notifications"])
 
 
 if __name__ == "__main__":
