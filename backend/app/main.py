@@ -117,10 +117,14 @@ async def root():
     }
 
 
-# Import and include routers (will be added as we build them)
-# from app.routers import auth, users, businesses, clients, appointments, services, staff, equipment
+# Import and include routers
+from app.routers.auth import router as auth_router
 
-# app.include_router(auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
+# API v1 routers
+app.include_router(auth_router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
+
+# These will be added as we build them:
+# from app.routers import users, businesses, clients, appointments, services, staff, equipment
 # app.include_router(users.router, prefix=f"{settings.API_V1_PREFIX}/users", tags=["Users"])
 # app.include_router(businesses.router, prefix=f"{settings.API_V1_PREFIX}/businesses", tags=["Businesses"])
 # app.include_router(clients.router, prefix=f"{settings.API_V1_PREFIX}/clients", tags=["Clients"])
