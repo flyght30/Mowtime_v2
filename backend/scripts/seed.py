@@ -158,51 +158,123 @@ async def create_businesses(db) -> list:
     businesses = [
         {
             "business_id": generate_id("bus"),
+            "owner_id": "",  # Will be updated after user creation
             "name": "GreenScape Pro",
             "slug": "greenscape-pro",
-            "industry": "lawn_care",
+            "vertical": "lawn_care",
+            "description": "Professional lawn care and landscaping services in the Austin area",
             "email": "info@greenscapepro.com",
             "phone": "5125551234",
+            "website": "https://greenscapepro.com",
             "address_line1": "100 Business Park Dr",
-            "address_city": "Austin",
-            "address_state": "TX",
-            "address_zip": "78701",
+            "city": "Austin",
+            "state": "TX",
+            "zip_code": "78701",
+            "country": "US",
+            "service_radius_miles": 30,
+            "plan": "professional",
+            "subscription_status": "active",
             "timezone": "America/Chicago",
-            "settings": {
-                "booking_buffer_hours": 24,
-                "cancellation_hours": 24,
-                "default_appointment_duration": 60,
-                "work_days": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"],
-                "work_hours_start": "07:00",
-                "work_hours_end": "18:00"
+            "config": {
+                "business_hours": {
+                    "monday": {"is_open": True, "open_time": "07:00", "close_time": "18:00"},
+                    "tuesday": {"is_open": True, "open_time": "07:00", "close_time": "18:00"},
+                    "wednesday": {"is_open": True, "open_time": "07:00", "close_time": "18:00"},
+                    "thursday": {"is_open": True, "open_time": "07:00", "close_time": "18:00"},
+                    "friday": {"is_open": True, "open_time": "07:00", "close_time": "18:00"},
+                    "saturday": {"is_open": True, "open_time": "08:00", "close_time": "14:00"},
+                    "sunday": {"is_open": False, "open_time": "08:00", "close_time": "17:00"}
+                },
+                "weather_thresholds": {
+                    "rain_probability_percent": 70,
+                    "min_temperature_f": 32,
+                    "max_temperature_f": 105,
+                    "max_wind_speed_mph": 35,
+                    "enabled": True
+                },
+                "notification_settings": {
+                    "appointment_reminder_hours": 24,
+                    "reschedule_notify": True,
+                    "new_client_notify": True,
+                    "daily_digest": True,
+                    "digest_time": "06:00"
+                },
+                "min_gap_between_jobs_minutes": 30,
+                "max_daily_appointments": 20,
+                "allow_same_day_booking": True,
+                "advance_booking_days": 60,
+                "default_appointment_duration_minutes": 60,
+                "weather_enabled": True,
+                "ai_receptionist_enabled": False,
+                "online_booking_enabled": True,
+                "customer_portal_enabled": True,
+                "primary_color": "#4CAF50",
+                "logo_url": None
             },
-            "subscription_tier": "professional",
-            "is_active": True,
+            "total_clients": 0,
+            "total_staff": 0,
+            "total_appointments": 0,
             "created_at": datetime.utcnow() - timedelta(days=365),
             "updated_at": datetime.utcnow()
         },
         {
             "business_id": generate_id("bus"),
+            "owner_id": "",  # Will be updated after user creation
             "name": "Sunshine Lawn Care",
             "slug": "sunshine-lawn-care",
-            "industry": "lawn_care",
+            "vertical": "lawn_care",
+            "description": "Your trusted lawn care partner in Central Florida",
             "email": "contact@sunshinelawncare.com",
             "phone": "4075559876",
+            "website": "https://sunshinelawncare.com",
             "address_line1": "500 Orange Ave",
-            "address_city": "Orlando",
-            "address_state": "FL",
-            "address_zip": "32801",
+            "city": "Orlando",
+            "state": "FL",
+            "zip_code": "32801",
+            "country": "US",
+            "service_radius_miles": 25,
+            "plan": "starter",
+            "subscription_status": "active",
             "timezone": "America/New_York",
-            "settings": {
-                "booking_buffer_hours": 48,
-                "cancellation_hours": 24,
-                "default_appointment_duration": 45,
-                "work_days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
-                "work_hours_start": "08:00",
-                "work_hours_end": "17:00"
+            "config": {
+                "business_hours": {
+                    "monday": {"is_open": True, "open_time": "08:00", "close_time": "17:00"},
+                    "tuesday": {"is_open": True, "open_time": "08:00", "close_time": "17:00"},
+                    "wednesday": {"is_open": True, "open_time": "08:00", "close_time": "17:00"},
+                    "thursday": {"is_open": True, "open_time": "08:00", "close_time": "17:00"},
+                    "friday": {"is_open": True, "open_time": "08:00", "close_time": "17:00"},
+                    "saturday": {"is_open": False, "open_time": "08:00", "close_time": "12:00"},
+                    "sunday": {"is_open": False, "open_time": "08:00", "close_time": "17:00"}
+                },
+                "weather_thresholds": {
+                    "rain_probability_percent": 60,
+                    "min_temperature_f": 40,
+                    "max_temperature_f": 100,
+                    "max_wind_speed_mph": 30,
+                    "enabled": True
+                },
+                "notification_settings": {
+                    "appointment_reminder_hours": 48,
+                    "reschedule_notify": True,
+                    "new_client_notify": True,
+                    "daily_digest": True,
+                    "digest_time": "07:00"
+                },
+                "min_gap_between_jobs_minutes": 30,
+                "max_daily_appointments": 15,
+                "allow_same_day_booking": False,
+                "advance_booking_days": 45,
+                "default_appointment_duration_minutes": 45,
+                "weather_enabled": True,
+                "ai_receptionist_enabled": False,
+                "online_booking_enabled": True,
+                "customer_portal_enabled": True,
+                "primary_color": "#FF9800",
+                "logo_url": None
             },
-            "subscription_tier": "starter",
-            "is_active": True,
+            "total_clients": 0,
+            "total_staff": 0,
+            "total_appointments": 0,
             "created_at": datetime.utcnow() - timedelta(days=180),
             "updated_at": datetime.utcnow()
         }
@@ -224,8 +296,9 @@ async def create_users(db, businesses: list) -> list:
 
     for i, business in enumerate(businesses):
         first, last, email = owner_data[i]
+        user_id = generate_id("usr")
         user = {
-            "user_id": generate_id("usr"),
+            "user_id": user_id,
             "business_id": business["business_id"],
             "email": email,
             "hashed_password": hashed_password,
@@ -240,6 +313,12 @@ async def create_users(db, businesses: list) -> list:
             "updated_at": datetime.utcnow()
         }
         users.append(user)
+
+        # Update business with owner_id
+        await db.businesses.update_one(
+            {"business_id": business["business_id"]},
+            {"$set": {"owner_id": user_id}}
+        )
 
     await db.users.insert_many(users)
     return users
@@ -376,7 +455,7 @@ async def create_clients(db, businesses: list) -> dict:
     """Create clients for each business"""
     clients_by_business = {}
 
-    is_austin = lambda b: b["address_state"] == "TX"
+    is_austin = lambda b: b["state"] == "TX"
 
     for business in businesses:
         clients = []

@@ -117,6 +117,7 @@ class Business(BaseDocument):
 
     # Basic Info
     name: str
+    slug: Optional[str] = None  # URL-friendly identifier for public booking
     vertical: ServiceVertical = ServiceVertical.LAWN_CARE
     description: Optional[str] = None
 
@@ -202,6 +203,7 @@ class BusinessResponse(BaseModel):
     business_id: str
     owner_id: str
     name: str
+    slug: Optional[str] = None
     vertical: ServiceVertical
     description: Optional[str] = None
     email: EmailStr
@@ -215,5 +217,22 @@ class BusinessResponse(BaseModel):
     config: BusinessConfig
     total_clients: int
     total_staff: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PublicBusinessResponse(BaseModel):
+    """Public-facing business response for portal"""
+    business_id: str
+    name: str
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    vertical: ServiceVertical
+    phone: str
+    email: EmailStr
+    city: str
+    state: str
+    timezone: str
+    config: BusinessConfig
 
     model_config = ConfigDict(from_attributes=True)
