@@ -95,12 +95,34 @@ Building out the full frontend screens for ServicePro mobile app.
   - Visibility toggles
   - Advanced settings (staff requirements, buffer hours)
 
-### 4. Staff Screens
+### 4. Staff Screens ✅ COMPLETE
 | Screen | File | Status |
 |--------|------|--------|
-| Staff List | `staff/index.tsx` | Not started |
-| Staff Detail | `staff/[id].tsx` | Not started |
-| Create/Edit Staff | `staff/create.tsx` | Not started |
+| Staff List | `staff/index.tsx` | ✅ Complete |
+| Staff Detail | `staff/[id].tsx` | ✅ Complete |
+| Create Staff | `staff/create.tsx` | ✅ Complete |
+| Edit Staff | `staff/[id]/edit.tsx` | ✅ Complete |
+
+**Features Implemented:**
+- ✅ List with filter tabs and role color-coding
+- ✅ Role badges with icons
+- ✅ Crew leader badge indicator
+- ✅ Certifications display
+- ✅ Detail view with:
+  - Quick actions (Call, Message, Email)
+  - Contact info and employment details
+  - Performance stats (jobs, hours, rating)
+  - Skills & certifications display
+  - Weekly availability grid
+  - Emergency contact info
+  - Quick toggle switches for active/crew leader
+- ✅ Create/Edit forms with:
+  - Role selector with icons and colors
+  - Employment type options
+  - Settings (active, crew leader, max daily appointments)
+  - Certifications management
+  - Collapsible emergency contact section
+  - Collapsible notes section
 
 ### 5. Settings & Profile
 | Screen | File | Status |
@@ -169,8 +191,24 @@ Building out the full frontend screens for ServicePro mobile app.
 - Delete confirmation with Alert
 - Pricing type affects form fields shown
 
+### Session 4 - 2026-01-21
+
+**Completed:** Staff screens (all 4)
+
+**Files Created:**
+- `app/staff/index.tsx` - List screen with role badges and filter tabs
+- `app/staff/[id].tsx` - Detail screen with availability grid and emergency contact
+- `app/staff/create.tsx` - Create form with role selector
+- `app/staff/[id]/edit.tsx` - Edit form pre-populated
+
+**Pattern Decisions:**
+- Role-specific colors and icons
+- Weekly availability displayed as a grid
+- Emergency contact as collapsible section
+- Certifications as chips with add/remove
+
 ---
 
 ## Resume Point
-**Last completed:** All services screens (list, detail, create, edit)
-**Next action:** Build staff screens using same patterns
+**Last completed:** All staff screens (list, detail, create, edit)
+**Next action:** Settings & Profile screens (optional enhancement)
