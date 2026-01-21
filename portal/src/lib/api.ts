@@ -119,7 +119,8 @@ class ApiClient {
   }
 
   async getClientProfile() {
-    return this.request('GET', '/portal/me');
+    const token = this.getToken();
+    return this.request('GET', `/portal/me?authorization=Bearer ${token}`);
   }
 
   // Booking
@@ -153,26 +154,35 @@ class ApiClient {
 
   // Client dashboard
   async getClientAppointments(status?: string) {
-    const query = status ? `?status=${status}` : '';
-    return this.request('GET', `/portal/appointments${query}`);
+    const token = this.getToken();
+    const params = new URLSearchParams();
+    params.set('authorization', `Bearer ${token}`);
+    if (status) params.set('status', status);
+    return this.request('GET', `/portal/appointments?${params.toString()}`);
   }
 
   async getClientInvoices(status?: string) {
-    const query = status ? `?status=${status}` : '';
-    return this.request('GET', `/portal/invoices${query}`);
+    const token = this.getToken();
+    const params = new URLSearchParams();
+    params.set('authorization', `Bearer ${token}`);
+    if (status) params.set('status', status);
+    return this.request('GET', `/portal/invoices?${params.toString()}`);
   }
 
   async getInvoiceDetails(invoiceId: string) {
-    return this.request('GET', `/portal/invoices/${invoiceId}`);
+    const token = this.getToken();
+    return this.request('GET', `/portal/invoices/${invoiceId}?authorization=Bearer ${token}`);
   }
 
   // Payments
   async createPaymentIntent(invoiceId: string) {
-    return this.request('POST', `/portal/payments/create-intent`, { invoice_id: invoiceId });
+    const token = this.getToken();
+    return this.request('POST', `/portal/payments/create-intent?authorization=Bearer ${token}`, { invoice_id: invoiceId });
   }
 
   async confirmPayment(paymentIntentId: string) {
-    return this.request('POST', `/portal/payments/confirm`, { payment_intent_id: paymentIntentId });
+    const token = this.getToken();
+    return this.request('POST', `/portal/payments/confirm?payment_intent_id=${paymentIntentId}&authorization=Bearer ${token}`);
   }
 }
 

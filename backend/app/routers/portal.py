@@ -14,7 +14,16 @@ from app.models.business import PublicBusinessResponse
 from app.models.service import ServiceResponse
 from app.models.client import Address
 from app.models.common import generate_id, utc_now
+from app.utils.security import (
+    get_password_hash,
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    verify_token
+)
+from app.config import get_settings
 
+settings = get_settings()
 router = APIRouter()
 
 
@@ -94,6 +103,42 @@ class PublicServiceResponse(BaseModel):
     is_featured: bool = False
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ============== Auth Models ==============
+
+class ClientLoginRequest(BaseModel):
+    """Client login request"""
+    email: EmailStr
+    password: str
+    business_id: str
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+
+class ClientRegisterRequest(BaseModel):
+    """Client registration request"""
+    email: EmailStr
+    password: str = Field(min_length=8)
+    first_name: str = Field(min_length=1, max_length=50)
+    last_name: str = Field(min_length=1, max_length=50)
+    phone: str = Field(min_length=10, max_length=20)
+    business_id: str
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+
+class ClientTokenResponse(BaseModel):
+    """Token response for client auth"""
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    client_id: str
+    email: str
+    first_name: str
+    last_name: str
+    business_id: str
 
 
 # ============== Endpoints ==============
@@ -754,3 +799,772 @@ async def cancel_booking(
         "success": True,
         "message": "Booking cancelled successfully"
     }
+
+
+# ============== Client Authentication ==============
+
+async def get_current_client(
+    authorization: str = Query(None, include_in_schema=False),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get current authenticated client from token"""
+    from fastapi import Header
+    return None  # Placeholder - will be overridden in actual endpoint
+
+
+@router.post(
+    "/auth/register",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a new client account"
+)
+async def client_register(
+    data: ClientRegisterRequest,
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Register a new client account for the portal"""
+    # Verify business exists
+    business = await db.businesses.find_one({
+        "business_id": data.business_id,
+        "deleted_at": None
+    })
+
+    if not business:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "BUSINESS_NOT_FOUND", "message": "Business not found"}
+        )
+
+    # Check if email already registered for this business
+    existing_user = await db.portal_users.find_one({
+        "email": data.email.lower(),
+        "business_id": data.business_id
+    })
+
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "EMAIL_EXISTS", "message": "An account with this email already exists"}
+        )
+
+    # Check if client already exists (from guest booking)
+    existing_client = await db.clients.find_one({
+        "email": data.email.lower(),
+        "business_id": data.business_id,
+        "deleted_at": None
+    })
+
+    if existing_client:
+        client_id = existing_client["client_id"]
+    else:
+        # Create new client
+        client_id = generate_id("cli")
+        new_client = {
+            "client_id": client_id,
+            "business_id": data.business_id,
+            "first_name": data.first_name,
+            "last_name": data.last_name,
+            "email": data.email.lower(),
+            "phone": data.phone,
+            "addresses": [],
+            "status": "active",
+            "source": "portal_registration",
+            "preferences": {
+                "preferred_contact_method": "email",
+                "reminder_hours_before": 24,
+                "allow_sms": True,
+                "allow_email": True,
+                "allow_marketing": False
+            },
+            "total_appointments": 0,
+            "completed_appointments": 0,
+            "canceled_appointments": 0,
+            "lifetime_value": 0.0,
+            "tags": ["portal_user"],
+            "created_at": utc_now(),
+            "updated_at": utc_now()
+        }
+        await db.clients.insert_one(new_client)
+
+        # Update business stats
+        await db.businesses.update_one(
+            {"business_id": data.business_id},
+            {"$inc": {"total_clients": 1}}
+        )
+
+    # Create portal user
+    portal_user_id = generate_id("pu")
+    portal_user = {
+        "portal_user_id": portal_user_id,
+        "business_id": data.business_id,
+        "client_id": client_id,
+        "email": data.email.lower(),
+        "password_hash": get_password_hash(data.password),
+        "first_name": data.first_name,
+        "last_name": data.last_name,
+        "phone": data.phone,
+        "is_active": True,
+        "created_at": utc_now(),
+        "updated_at": utc_now()
+    }
+    await db.portal_users.insert_one(portal_user)
+
+    # Link client to portal user
+    await db.clients.update_one(
+        {"client_id": client_id},
+        {"$set": {"portal_user_id": portal_user_id, "updated_at": utc_now()}}
+    )
+
+    # Create tokens
+    access_token = create_access_token(
+        user_id=portal_user_id,
+        role="client",
+        business_id=data.business_id
+    )
+    refresh_token = create_refresh_token(
+        user_id=portal_user_id,
+        role="client",
+        business_id=data.business_id
+    )
+
+    return {
+        "success": True,
+        "data": {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "client_id": client_id,
+            "email": data.email.lower(),
+            "first_name": data.first_name,
+            "last_name": data.last_name,
+            "business_id": data.business_id
+        }
+    }
+
+
+@router.post(
+    "/auth/login",
+    response_model=dict,
+    summary="Login as a client"
+)
+async def client_login(
+    data: ClientLoginRequest,
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Login as a client to access dashboard"""
+    # Find portal user
+    portal_user = await db.portal_users.find_one({
+        "email": data.email.lower(),
+        "business_id": data.business_id
+    })
+
+    if not portal_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_CREDENTIALS", "message": "Invalid email or password"}
+        )
+
+    # Verify password
+    if not verify_password(data.password, portal_user["password_hash"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_CREDENTIALS", "message": "Invalid email or password"}
+        )
+
+    # Check if active
+    if not portal_user.get("is_active", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "ACCOUNT_DISABLED", "message": "This account has been disabled"}
+        )
+
+    # Update last login
+    await db.portal_users.update_one(
+        {"portal_user_id": portal_user["portal_user_id"]},
+        {"$set": {"last_login_at": utc_now(), "updated_at": utc_now()}}
+    )
+
+    # Create tokens
+    access_token = create_access_token(
+        user_id=portal_user["portal_user_id"],
+        role="client",
+        business_id=data.business_id
+    )
+    refresh_token = create_refresh_token(
+        user_id=portal_user["portal_user_id"],
+        role="client",
+        business_id=data.business_id
+    )
+
+    return {
+        "success": True,
+        "data": {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "client_id": portal_user["client_id"],
+            "email": portal_user["email"],
+            "first_name": portal_user["first_name"],
+            "last_name": portal_user["last_name"],
+            "business_id": data.business_id
+        }
+    }
+
+
+@router.get(
+    "/me",
+    response_model=dict,
+    summary="Get current client profile"
+)
+async def get_client_profile(
+    authorization: str = Query(..., description="Bearer token"),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get current authenticated client's profile"""
+    # Extract token
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_TOKEN", "message": "Invalid authorization header"}
+        )
+
+    token = authorization.replace("Bearer ", "")
+    token_data = verify_token(token, token_type="access")
+
+    if not token_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_TOKEN", "message": "Invalid or expired token"}
+        )
+
+    # Get portal user
+    portal_user = await db.portal_users.find_one({
+        "portal_user_id": token_data.user_id
+    })
+
+    if not portal_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "USER_NOT_FOUND", "message": "User not found"}
+        )
+
+    # Get client details
+    client = await db.clients.find_one({
+        "client_id": portal_user["client_id"]
+    })
+
+    return {
+        "success": True,
+        "data": {
+            "client_id": portal_user["client_id"],
+            "email": portal_user["email"],
+            "first_name": portal_user["first_name"],
+            "last_name": portal_user["last_name"],
+            "phone": portal_user.get("phone", ""),
+            "business_id": portal_user["business_id"],
+            "addresses": client.get("addresses", []) if client else [],
+            "total_appointments": client.get("total_appointments", 0) if client else 0,
+            "completed_appointments": client.get("completed_appointments", 0) if client else 0,
+            "lifetime_value": client.get("lifetime_value", 0) if client else 0
+        }
+    }
+
+
+# ============== Client Dashboard ==============
+
+@router.get(
+    "/appointments",
+    response_model=dict,
+    summary="Get client appointments"
+)
+async def get_client_appointments(
+    authorization: str = Query(..., description="Bearer token"),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get client's appointments"""
+    # Extract and verify token
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_TOKEN", "message": "Invalid authorization header"}
+        )
+
+    token = authorization.replace("Bearer ", "")
+    token_data = verify_token(token, token_type="access")
+
+    if not token_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_TOKEN", "message": "Invalid or expired token"}
+        )
+
+    # Get portal user
+    portal_user = await db.portal_users.find_one({
+        "portal_user_id": token_data.user_id
+    })
+
+    if not portal_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "USER_NOT_FOUND", "message": "User not found"}
+        )
+
+    # Build query
+    query = {
+        "client_id": portal_user["client_id"],
+        "deleted_at": None
+    }
+
+    if status_filter:
+        if status_filter == "upcoming":
+            query["status"] = {"$in": ["scheduled", "confirmed"]}
+            query["scheduled_date"] = {"$gte": date.today().isoformat()}
+        elif status_filter == "past":
+            query["status"] = {"$in": ["completed", "canceled", "no_show"]}
+        else:
+            query["status"] = status_filter
+
+    # Get appointments
+    cursor = db.appointments.find(query).sort([
+        ("scheduled_date", -1),
+        ("scheduled_time", -1)
+    ])
+    appointments = await cursor.to_list(length=100)
+
+    # Get business info
+    business = await db.businesses.find_one({
+        "business_id": portal_user["business_id"]
+    })
+
+    result = []
+    for apt in appointments:
+        services = apt.get("services", [])
+        service_info = services[0] if services else {}
+
+        result.append({
+            "appointment_id": apt["appointment_id"],
+            "confirmation_number": apt.get("confirmation_number", apt["appointment_id"][:8].upper()),
+            "scheduled_date": apt["scheduled_date"],
+            "scheduled_time": apt["scheduled_time"],
+            "end_time": apt.get("end_time", ""),
+            "status": apt["status"],
+            "service_name": service_info.get("service_name", "Unknown"),
+            "total_price": apt.get("total_price", 0),
+            "business_name": business["name"] if business else "Unknown"
+        })
+
+    return {
+        "success": True,
+        "data": result,
+        "count": len(result)
+    }
+
+
+@router.get(
+    "/invoices",
+    response_model=dict,
+    summary="Get client invoices"
+)
+async def get_client_invoices(
+    authorization: str = Query(..., description="Bearer token"),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get client's invoices"""
+    # Extract and verify token
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_TOKEN", "message": "Invalid authorization header"}
+        )
+
+    token = authorization.replace("Bearer ", "")
+    token_data = verify_token(token, token_type="access")
+
+    if not token_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_TOKEN", "message": "Invalid or expired token"}
+        )
+
+    # Get portal user
+    portal_user = await db.portal_users.find_one({
+        "portal_user_id": token_data.user_id
+    })
+
+    if not portal_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "USER_NOT_FOUND", "message": "User not found"}
+        )
+
+    # Build query
+    query = {
+        "client_id": portal_user["client_id"],
+        "deleted_at": None
+    }
+
+    if status_filter:
+        if status_filter == "unpaid":
+            query["status"] = {"$in": ["sent", "overdue"]}
+        else:
+            query["status"] = status_filter
+
+    # Get invoices
+    cursor = db.invoices.find(query).sort("issued_date", -1)
+    invoices = await cursor.to_list(length=100)
+
+    result = []
+    for inv in invoices:
+        result.append({
+            "invoice_id": inv["invoice_id"],
+            "invoice_number": inv.get("invoice_number", ""),
+            "status": inv["status"],
+            "subtotal": inv.get("subtotal", 0),
+            "tax_amount": inv.get("tax_amount", 0),
+            "total": inv.get("total", 0),
+            "amount_paid": inv.get("amount_paid", 0),
+            "amount_due": inv.get("amount_due", 0),
+            "due_date": inv.get("due_date", ""),
+            "issued_date": inv.get("issued_date", ""),
+            "line_items": inv.get("line_items", [])
+        })
+
+    return {
+        "success": True,
+        "data": result,
+        "count": len(result)
+    }
+
+
+@router.get(
+    "/invoices/{invoice_id}",
+    response_model=dict,
+    summary="Get invoice details"
+)
+async def get_invoice_details(
+    invoice_id: str,
+    authorization: str = Query(..., description="Bearer token"),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get detailed invoice information"""
+    # Extract and verify token
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_TOKEN", "message": "Invalid authorization header"}
+        )
+
+    token = authorization.replace("Bearer ", "")
+    token_data = verify_token(token, token_type="access")
+
+    if not token_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_TOKEN", "message": "Invalid or expired token"}
+        )
+
+    # Get portal user
+    portal_user = await db.portal_users.find_one({
+        "portal_user_id": token_data.user_id
+    })
+
+    if not portal_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "USER_NOT_FOUND", "message": "User not found"}
+        )
+
+    # Get invoice
+    invoice = await db.invoices.find_one({
+        "invoice_id": invoice_id,
+        "client_id": portal_user["client_id"],
+        "deleted_at": None
+    })
+
+    if not invoice:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "INVOICE_NOT_FOUND", "message": "Invoice not found"}
+        )
+
+    # Get business info
+    business = await db.businesses.find_one({
+        "business_id": portal_user["business_id"]
+    })
+
+    return {
+        "success": True,
+        "data": {
+            "invoice_id": invoice["invoice_id"],
+            "invoice_number": invoice.get("invoice_number", ""),
+            "status": invoice["status"],
+            "subtotal": invoice.get("subtotal", 0),
+            "tax_rate": invoice.get("tax_rate", 0),
+            "tax_amount": invoice.get("tax_amount", 0),
+            "total": invoice.get("total", 0),
+            "amount_paid": invoice.get("amount_paid", 0),
+            "amount_due": invoice.get("amount_due", 0),
+            "due_date": invoice.get("due_date", ""),
+            "issued_date": invoice.get("issued_date", ""),
+            "paid_date": invoice.get("paid_date"),
+            "line_items": invoice.get("line_items", []),
+            "business": {
+                "name": business["name"] if business else "Unknown",
+                "email": business.get("email", "") if business else "",
+                "phone": business.get("phone", "") if business else "",
+                "address": f"{business.get('address_line1', '')}, {business.get('city', '')}, {business.get('state', '')} {business.get('zip_code', '')}" if business else ""
+            }
+        }
+    }
+
+
+# ============== Stripe Payments ==============
+
+class CreatePaymentIntentRequest(BaseModel):
+    """Request to create a payment intent"""
+    invoice_id: str
+
+
+@router.post(
+    "/payments/create-intent",
+    response_model=dict,
+    summary="Create a Stripe payment intent"
+)
+async def create_payment_intent(
+    data: CreatePaymentIntentRequest,
+    authorization: str = Query(..., description="Bearer token"),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Create a Stripe payment intent for an invoice"""
+    import os
+    import stripe
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+
+    if not stripe.api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "PAYMENTS_UNAVAILABLE", "message": "Payment processing is not configured"}
+        )
+
+    # Extract and verify token
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_TOKEN", "message": "Invalid authorization header"}
+        )
+
+    token = authorization.replace("Bearer ", "")
+    token_data = verify_token(token, token_type="access")
+
+    if not token_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_TOKEN", "message": "Invalid or expired token"}
+        )
+
+    # Get portal user
+    portal_user = await db.portal_users.find_one({
+        "portal_user_id": token_data.user_id
+    })
+
+    if not portal_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "USER_NOT_FOUND", "message": "User not found"}
+        )
+
+    # Get invoice
+    invoice = await db.invoices.find_one({
+        "invoice_id": data.invoice_id,
+        "client_id": portal_user["client_id"],
+        "deleted_at": None
+    })
+
+    if not invoice:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "INVOICE_NOT_FOUND", "message": "Invoice not found"}
+        )
+
+    # Check if invoice can be paid
+    if invoice.get("status") == "paid":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "ALREADY_PAID", "message": "This invoice has already been paid"}
+        )
+
+    amount_due = invoice.get("amount_due", 0)
+    if amount_due <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "NO_AMOUNT_DUE", "message": "No amount due on this invoice"}
+        )
+
+    # Get business for description
+    business = await db.businesses.find_one({
+        "business_id": portal_user["business_id"]
+    })
+
+    try:
+        # Create Stripe payment intent
+        intent = stripe.PaymentIntent.create(
+            amount=int(amount_due * 100),  # Convert to cents
+            currency="usd",
+            metadata={
+                "invoice_id": invoice["invoice_id"],
+                "invoice_number": invoice.get("invoice_number", ""),
+                "client_id": portal_user["client_id"],
+                "business_id": portal_user["business_id"]
+            },
+            description=f"Invoice {invoice.get('invoice_number', invoice['invoice_id'])} - {business['name'] if business else 'ServicePro'}",
+            receipt_email=portal_user["email"]
+        )
+
+        # Store payment intent ID on invoice
+        await db.invoices.update_one(
+            {"invoice_id": data.invoice_id},
+            {"$set": {
+                "stripe_payment_intent_id": intent.id,
+                "updated_at": utc_now()
+            }}
+        )
+
+        return {
+            "success": True,
+            "data": {
+                "client_secret": intent.client_secret,
+                "payment_intent_id": intent.id,
+                "amount": amount_due
+            }
+        }
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "STRIPE_ERROR", "message": str(e)}
+        )
+
+
+@router.post(
+    "/payments/confirm",
+    response_model=dict,
+    summary="Confirm a payment was successful"
+)
+async def confirm_payment(
+    payment_intent_id: str = Query(...),
+    authorization: str = Query(..., description="Bearer token"),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Confirm payment and update invoice status"""
+    import os
+    import stripe
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+
+    if not stripe.api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "PAYMENTS_UNAVAILABLE", "message": "Payment processing is not configured"}
+        )
+
+    # Extract and verify token
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_TOKEN", "message": "Invalid authorization header"}
+        )
+
+    token = authorization.replace("Bearer ", "")
+    token_data = verify_token(token, token_type="access")
+
+    if not token_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_TOKEN", "message": "Invalid or expired token"}
+        )
+
+    try:
+        # Retrieve payment intent from Stripe
+        intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+
+        if intent.status != "succeeded":
+            return {
+                "success": False,
+                "data": {
+                    "status": intent.status,
+                    "message": "Payment not yet successful"
+                }
+            }
+
+        # Get invoice from metadata
+        invoice_id = intent.metadata.get("invoice_id")
+        if not invoice_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "INVALID_INTENT", "message": "Payment intent has no invoice reference"}
+            )
+
+        # Update invoice
+        invoice = await db.invoices.find_one({"invoice_id": invoice_id})
+        if not invoice:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "INVOICE_NOT_FOUND", "message": "Invoice not found"}
+            )
+
+        amount_paid = intent.amount_received / 100  # Convert from cents
+        new_amount_paid = invoice.get("amount_paid", 0) + amount_paid
+        new_amount_due = invoice.get("total", 0) - new_amount_paid
+        new_status = "paid" if new_amount_due <= 0 else "partial"
+
+        await db.invoices.update_one(
+            {"invoice_id": invoice_id},
+            {"$set": {
+                "status": new_status,
+                "amount_paid": new_amount_paid,
+                "amount_due": max(0, new_amount_due),
+                "paid_date": utc_now().isoformat() if new_status == "paid" else None,
+                "stripe_payment_intent_id": payment_intent_id,
+                "updated_at": utc_now()
+            }}
+        )
+
+        # Create payment record
+        payment_id = generate_id("pay")
+        payment = {
+            "payment_id": payment_id,
+            "business_id": invoice["business_id"],
+            "client_id": invoice["client_id"],
+            "invoice_id": invoice_id,
+            "amount": amount_paid,
+            "payment_method": "stripe",
+            "stripe_payment_intent_id": payment_intent_id,
+            "status": "completed",
+            "created_at": utc_now()
+        }
+        await db.payments.insert_one(payment)
+
+        # Update client lifetime value
+        await db.clients.update_one(
+            {"client_id": invoice["client_id"]},
+            {"$inc": {"lifetime_value": amount_paid}}
+        )
+
+        return {
+            "success": True,
+            "data": {
+                "status": "paid",
+                "payment_id": payment_id,
+                "amount_paid": amount_paid,
+                "invoice_status": new_status
+            }
+        }
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "STRIPE_ERROR", "message": str(e)}
+        )

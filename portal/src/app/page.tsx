@@ -12,10 +12,10 @@ export default function HomePage() {
             <span className="text-xl font-bold text-gray-900">ServicePro</span>
           </div>
           <Link
-            href="/login"
+            href="/dashboard"
             className="text-primary-600 hover:text-primary-700 font-medium"
           >
-            Client Login
+            Client Portal
           </Link>
         </div>
       </header>
