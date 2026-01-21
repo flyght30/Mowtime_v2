@@ -12,6 +12,7 @@ import time
 
 from app.config import get_settings
 from app.database import Database
+from app.utils.exceptions import register_exception_handlers
 
 # Configure logging
 logging.basicConfig(
@@ -65,6 +66,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Register exception handlers
+register_exception_handlers(app)
+
 
 # Request timing middleware
 @app.middleware("http")
@@ -75,23 +79,6 @@ async def add_process_time_header(request: Request, call_next):
     process_time = time.time() - start_time
     response.headers["X-Process-Time"] = str(round(process_time * 1000, 2))
     return response
-
-
-# Global exception handler
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """Handle unexpected exceptions"""
-    logger.error(f"Unexpected error: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={
-            "success": False,
-            "error": {
-                "code": "INTERNAL_SERVER_ERROR",
-                "message": "An unexpected error occurred"
-            }
-        }
-    )
 
 
 # Health check endpoint
