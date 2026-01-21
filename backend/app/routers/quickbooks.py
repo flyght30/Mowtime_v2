@@ -48,6 +48,13 @@ async def initiate_quickbooks_auth(
     """
     qb_service = QuickBooksService(db)
 
+    # Check if QuickBooks is configured
+    if not qb_service.is_configured:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="QuickBooks integration is not configured. Please set QUICKBOOKS_CLIENT_ID and QUICKBOOKS_CLIENT_SECRET environment variables."
+        )
+
     # Generate state token for CSRF protection
     state = secrets.token_urlsafe(32)
 
@@ -168,11 +175,24 @@ async def get_quickbooks_status(
 ):
     """Get current QuickBooks connection status and sync info"""
     qb_service = QuickBooksService(db)
-    status = await qb_service.get_sync_status(current_user.business_id)
+
+    # Check if service is configured
+    if not qb_service.is_configured:
+        return {
+            "success": True,
+            "data": {
+                "configured": False,
+                "connected": False,
+                "message": "QuickBooks integration is not configured"
+            }
+        }
+
+    sync_status = await qb_service.get_sync_status(current_user.business_id)
+    sync_status["configured"] = True
 
     return {
         "success": True,
-        "data": status
+        "data": sync_status
     }
 
 

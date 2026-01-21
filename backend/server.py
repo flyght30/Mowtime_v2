@@ -16,7 +16,7 @@ from app.database import Database
 # Import routers
 from app.routers import auth, appointments, clients, services, staff, businesses
 from app.routers import availability, scheduling, equipment, notifications, payments, voice
-from app.routers import portal, analytics, quickbooks, routes, reminders
+from app.routers import portal, analytics, quickbooks, routes, reminders, integrations
 
 # Configure logging
 logging.basicConfig(
@@ -93,6 +93,9 @@ api_v1.include_router(routes.router, prefix="/routes", tags=["Routes"])
 
 # SMS Reminders router
 api_v1.include_router(reminders.router, prefix="/reminders", tags=["Reminders"])
+
+# Integrations status router
+api_v1.include_router(integrations.router, prefix="/integrations", tags=["Integrations"])
 
 # Include versioned router
 app.include_router(api_v1)

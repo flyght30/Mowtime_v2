@@ -35,6 +35,11 @@ class QuickBooksService:
         self.environment = os.getenv("QUICKBOOKS_ENVIRONMENT", "sandbox")
         self.api_base = QB_API_BASE_SANDBOX if self.environment == "sandbox" else QB_API_BASE_PRODUCTION
 
+    @property
+    def is_configured(self) -> bool:
+        """Check if QuickBooks integration is configured with required credentials"""
+        return bool(self.client_id and self.client_secret)
+
     def get_auth_url(self, business_id: str, state: str) -> str:
         """Generate QuickBooks OAuth authorization URL"""
         params = {

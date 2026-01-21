@@ -65,6 +65,7 @@ function SettingItem({
 }
 
 interface QuickBooksStatus {
+  configured?: boolean;
   connected: boolean;
   last_sync_clients?: string;
   last_sync_invoices?: string;
@@ -78,12 +79,31 @@ interface ReminderSettings {
   reminder_2h_enabled: boolean;
 }
 
+interface IntegrationStatus {
+  name: string;
+  display_name: string;
+  configured: boolean;
+  description: string;
+}
+
+interface IntegrationsResponse {
+  integrations: IntegrationStatus[];
+  summary: {
+    total: number;
+    configured: number;
+    not_configured: number;
+  };
+}
+
 export default function SettingsScreen() {
   const { user, logout } = useAuth();
   const [qbStatus, setQbStatus] = useState<QuickBooksStatus | null>(null);
   const [qbLoading, setQbLoading] = useState(false);
   const [syncingClients, setSyncingClients] = useState(false);
   const [syncingInvoices, setSyncingInvoices] = useState(false);
+
+  // Integration status state
+  const [integrationsStatus, setIntegrationsStatus] = useState<IntegrationsResponse | null>(null);
 
   // Reminder settings state
   const [reminderSettings, setReminderSettings] = useState<ReminderSettings>({
@@ -92,6 +112,13 @@ export default function SettingsScreen() {
     reminder_2h_enabled: true,
   });
   const [reminderLoading, setReminderLoading] = useState(false);
+
+  // Helper to check if a specific integration is configured
+  const isIntegrationConfigured = useCallback((name: string): boolean => {
+    if (!integrationsStatus) return true; // Assume configured if status unknown
+    const integration = integrationsStatus.integrations.find(i => i.name === name);
+    return integration?.configured ?? true;
+  }, [integrationsStatus]);
 
   const fetchQuickBooksStatus = useCallback(async () => {
     try {
@@ -115,12 +142,24 @@ export default function SettingsScreen() {
     }
   }, []);
 
+  const fetchIntegrationsStatus = useCallback(async () => {
+    try {
+      const response = await api.get('/integrations/status');
+      if (response.success && response.data?.data) {
+        setIntegrationsStatus(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch integrations status:', error);
+    }
+  }, []);
+
   useEffect(() => {
     if (user?.role === 'owner' || user?.role === 'admin') {
+      fetchIntegrationsStatus();
       fetchQuickBooksStatus();
       fetchReminderSettings();
     }
-  }, [user, fetchQuickBooksStatus, fetchReminderSettings]);
+  }, [user, fetchIntegrationsStatus, fetchQuickBooksStatus, fetchReminderSettings]);
 
   const updateReminderSetting = async (key: keyof ReminderSettings, value: boolean) => {
     setReminderLoading(true);
@@ -326,25 +365,42 @@ export default function SettingsScreen() {
         {(user?.role === 'owner' || user?.role === 'admin') && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Integrations</Text>
-            <Card style={styles.integrationCard}>
+            <Card style={[styles.integrationCard, !isIntegrationConfigured('quickbooks') && styles.disabledCard]}>
               <View style={styles.integrationHeader}>
-                <View style={styles.integrationLogo}>
+                <View style={[styles.integrationLogo, !isIntegrationConfigured('quickbooks') && styles.disabledLogo]}>
                   <Text style={styles.qbLogoText}>QB</Text>
                 </View>
                 <View style={styles.integrationInfo}>
-                  <Text style={styles.integrationTitle}>QuickBooks Online</Text>
+                  <Text style={[styles.integrationTitle, !isIntegrationConfigured('quickbooks') && styles.disabledText]}>
+                    QuickBooks Online
+                  </Text>
                   <Text style={styles.integrationSubtitle}>
-                    {qbStatus?.connected ? 'Connected' : 'Not connected'}
+                    {!isIntegrationConfigured('quickbooks')
+                      ? 'Not configured'
+                      : qbStatus?.connected
+                      ? 'Connected'
+                      : 'Not connected'}
                   </Text>
                 </View>
-                {qbStatus?.connected ? (
+                {qbStatus?.connected && isIntegrationConfigured('quickbooks') ? (
                   <View style={styles.connectedBadge}>
                     <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
+                  </View>
+                ) : !isIntegrationConfigured('quickbooks') ? (
+                  <View style={styles.notConfiguredBadge}>
+                    <Ionicons name="alert-circle-outline" size={16} color={Colors.gray400} />
                   </View>
                 ) : null}
               </View>
 
-              {qbStatus?.connected ? (
+              {!isIntegrationConfigured('quickbooks') ? (
+                <View style={styles.notConfiguredMessage}>
+                  <Ionicons name="information-circle-outline" size={16} color={Colors.gray400} />
+                  <Text style={styles.notConfiguredText}>
+                    QuickBooks integration requires server configuration. Contact your administrator.
+                  </Text>
+                </View>
+              ) : qbStatus?.connected ? (
                 <>
                   <View style={styles.syncStats}>
                     <View style={styles.syncStatItem}>
@@ -422,73 +478,93 @@ export default function SettingsScreen() {
         {(user?.role === 'owner' || user?.role === 'admin') && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>SMS Reminders</Text>
-            <Card style={styles.reminderCard}>
+            <Card style={[styles.reminderCard, !isIntegrationConfigured('twilio') && styles.disabledCard]}>
               <View style={styles.reminderHeader}>
-                <View style={styles.reminderIconContainer}>
-                  <Ionicons name="chatbubble-ellipses" size={24} color={Colors.primary} />
+                <View style={[styles.reminderIconContainer, !isIntegrationConfigured('twilio') && styles.disabledIconContainer]}>
+                  <Ionicons name="chatbubble-ellipses" size={24} color={isIntegrationConfigured('twilio') ? Colors.primary : Colors.gray400} />
                 </View>
                 <View style={styles.reminderInfo}>
-                  <Text style={styles.reminderTitle}>Appointment Reminders</Text>
+                  <Text style={[styles.reminderTitle, !isIntegrationConfigured('twilio') && styles.disabledText]}>
+                    Appointment Reminders
+                  </Text>
                   <Text style={styles.reminderSubtitle}>
-                    Automatically notify clients via SMS
+                    {isIntegrationConfigured('twilio')
+                      ? 'Automatically notify clients via SMS'
+                      : 'SMS service not configured'}
                   </Text>
                 </View>
+                {!isIntegrationConfigured('twilio') && (
+                  <View style={styles.notConfiguredBadge}>
+                    <Ionicons name="alert-circle-outline" size={16} color={Colors.gray400} />
+                  </View>
+                )}
               </View>
 
-              <View style={styles.reminderToggleRow}>
-                <View style={styles.reminderToggleInfo}>
-                  <Text style={styles.reminderToggleTitle}>Enable Reminders</Text>
-                  <Text style={styles.reminderToggleSubtitle}>Master switch for all reminders</Text>
+              {!isIntegrationConfigured('twilio') ? (
+                <View style={styles.notConfiguredMessage}>
+                  <Ionicons name="information-circle-outline" size={16} color={Colors.gray400} />
+                  <Text style={styles.notConfiguredText}>
+                    SMS reminders require Twilio configuration. Contact your administrator.
+                  </Text>
                 </View>
-                <Switch
-                  value={reminderSettings.enabled}
-                  onValueChange={(value) => updateReminderSetting('enabled', value)}
-                  trackColor={{ false: Colors.gray300, true: Colors.primary + '60' }}
-                  thumbColor={reminderSettings.enabled ? Colors.primary : Colors.gray400}
-                  disabled={reminderLoading}
-                />
-              </View>
-
-              {reminderSettings.enabled && (
+              ) : (
                 <>
-                  <View style={styles.reminderDivider} />
                   <View style={styles.reminderToggleRow}>
                     <View style={styles.reminderToggleInfo}>
-                      <Text style={styles.reminderToggleTitle}>24-Hour Reminder</Text>
-                      <Text style={styles.reminderToggleSubtitle}>Send reminder day before</Text>
+                      <Text style={styles.reminderToggleTitle}>Enable Reminders</Text>
+                      <Text style={styles.reminderToggleSubtitle}>Master switch for all reminders</Text>
                     </View>
                     <Switch
-                      value={reminderSettings.reminder_24h_enabled}
-                      onValueChange={(value) => updateReminderSetting('reminder_24h_enabled', value)}
-                      trackColor={{ false: Colors.gray300, true: Colors.success + '60' }}
-                      thumbColor={reminderSettings.reminder_24h_enabled ? Colors.success : Colors.gray400}
+                      value={reminderSettings.enabled}
+                      onValueChange={(value) => updateReminderSetting('enabled', value)}
+                      trackColor={{ false: Colors.gray300, true: Colors.primary + '60' }}
+                      thumbColor={reminderSettings.enabled ? Colors.primary : Colors.gray400}
                       disabled={reminderLoading}
                     />
                   </View>
 
-                  <View style={styles.reminderDivider} />
-                  <View style={styles.reminderToggleRow}>
-                    <View style={styles.reminderToggleInfo}>
-                      <Text style={styles.reminderToggleTitle}>2-Hour Reminder</Text>
-                      <Text style={styles.reminderToggleSubtitle}>Send "on the way" notification</Text>
-                    </View>
-                    <Switch
-                      value={reminderSettings.reminder_2h_enabled}
-                      onValueChange={(value) => updateReminderSetting('reminder_2h_enabled', value)}
-                      trackColor={{ false: Colors.gray300, true: Colors.success + '60' }}
-                      thumbColor={reminderSettings.reminder_2h_enabled ? Colors.success : Colors.gray400}
-                      disabled={reminderLoading}
-                    />
+                  {reminderSettings.enabled && (
+                    <>
+                      <View style={styles.reminderDivider} />
+                      <View style={styles.reminderToggleRow}>
+                        <View style={styles.reminderToggleInfo}>
+                          <Text style={styles.reminderToggleTitle}>24-Hour Reminder</Text>
+                          <Text style={styles.reminderToggleSubtitle}>Send reminder day before</Text>
+                        </View>
+                        <Switch
+                          value={reminderSettings.reminder_24h_enabled}
+                          onValueChange={(value) => updateReminderSetting('reminder_24h_enabled', value)}
+                          trackColor={{ false: Colors.gray300, true: Colors.success + '60' }}
+                          thumbColor={reminderSettings.reminder_24h_enabled ? Colors.success : Colors.gray400}
+                          disabled={reminderLoading}
+                        />
+                      </View>
+
+                      <View style={styles.reminderDivider} />
+                      <View style={styles.reminderToggleRow}>
+                        <View style={styles.reminderToggleInfo}>
+                          <Text style={styles.reminderToggleTitle}>2-Hour Reminder</Text>
+                          <Text style={styles.reminderToggleSubtitle}>Send "on the way" notification</Text>
+                        </View>
+                        <Switch
+                          value={reminderSettings.reminder_2h_enabled}
+                          onValueChange={(value) => updateReminderSetting('reminder_2h_enabled', value)}
+                          trackColor={{ false: Colors.gray300, true: Colors.success + '60' }}
+                          thumbColor={reminderSettings.reminder_2h_enabled ? Colors.success : Colors.gray400}
+                          disabled={reminderLoading}
+                        />
+                      </View>
+                    </>
+                  )}
+
+                  <View style={styles.reminderFooter}>
+                    <Ionicons name="information-circle-outline" size={14} color={Colors.textSecondary} />
+                    <Text style={styles.reminderFooterText}>
+                      Clients can reply CONFIRM or RESCHEDULE
+                    </Text>
                   </View>
                 </>
               )}
-
-              <View style={styles.reminderFooter}>
-                <Ionicons name="information-circle-outline" size={14} color={Colors.textSecondary} />
-                <Text style={styles.reminderFooterText}>
-                  Clients can reply CONFIRM or RESCHEDULE
-                </Text>
-              </View>
             </Card>
           </View>
         )}
@@ -803,6 +879,45 @@ const styles = StyleSheet.create({
     color: Colors.error,
     fontSize: Typography.fontSize.sm,
     fontWeight: Typography.fontWeight.medium,
+  },
+
+  // Disabled state styles
+  disabledCard: {
+    opacity: 0.7,
+    backgroundColor: Colors.gray50,
+  },
+
+  disabledLogo: {
+    backgroundColor: Colors.gray300,
+  },
+
+  disabledIconContainer: {
+    backgroundColor: Colors.gray200,
+  },
+
+  disabledText: {
+    color: Colors.gray500,
+  },
+
+  notConfiguredBadge: {
+    marginLeft: Spacing.sm,
+  },
+
+  notConfiguredMessage: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: Colors.gray100,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.sm,
+    gap: Spacing.sm,
+  },
+
+  notConfiguredText: {
+    flex: 1,
+    fontSize: Typography.fontSize.sm,
+    color: Colors.gray500,
+    lineHeight: 20,
   },
 
   // SMS Reminders Styles
