@@ -240,11 +240,11 @@ export default function DashboardScreen() {
               <Text style={styles.actionText}>Add Client</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/routes')}>
               <View style={[styles.actionIcon, { backgroundColor: Colors.warning + '20' }]}>
-                <Ionicons name="document-text" size={24} color={Colors.warning} />
+                <Ionicons name="navigate" size={24} color={Colors.warning} />
               </View>
-              <Text style={styles.actionText}>Create Invoice</Text>
+              <Text style={styles.actionText}>Daily Route</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/analytics')}>
