@@ -117,21 +117,25 @@ async def root():
     }
 
 
-# Import and include routers
+# Import routers
 from app.routers.auth import router as auth_router
+from app.routers.businesses import router as businesses_router
+from app.routers.clients import router as clients_router
+from app.routers.services import router as services_router
+from app.routers.staff import router as staff_router
+from app.routers.equipment import router as equipment_router
+from app.routers.appointments import router as appointments_router
+from app.routers.availability import router as availability_router
 
 # API v1 routers
 app.include_router(auth_router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
-
-# These will be added as we build them:
-# from app.routers import users, businesses, clients, appointments, services, staff, equipment
-# app.include_router(users.router, prefix=f"{settings.API_V1_PREFIX}/users", tags=["Users"])
-# app.include_router(businesses.router, prefix=f"{settings.API_V1_PREFIX}/businesses", tags=["Businesses"])
-# app.include_router(clients.router, prefix=f"{settings.API_V1_PREFIX}/clients", tags=["Clients"])
-# app.include_router(appointments.router, prefix=f"{settings.API_V1_PREFIX}/appointments", tags=["Appointments"])
-# app.include_router(services.router, prefix=f"{settings.API_V1_PREFIX}/services", tags=["Services"])
-# app.include_router(staff.router, prefix=f"{settings.API_V1_PREFIX}/staff", tags=["Staff"])
-# app.include_router(equipment.router, prefix=f"{settings.API_V1_PREFIX}/equipment", tags=["Equipment"])
+app.include_router(businesses_router, prefix=f"{settings.API_V1_PREFIX}/businesses", tags=["Businesses"])
+app.include_router(clients_router, prefix=f"{settings.API_V1_PREFIX}/clients", tags=["Clients"])
+app.include_router(services_router, prefix=f"{settings.API_V1_PREFIX}/services", tags=["Services"])
+app.include_router(staff_router, prefix=f"{settings.API_V1_PREFIX}/staff", tags=["Staff"])
+app.include_router(equipment_router, prefix=f"{settings.API_V1_PREFIX}/equipment", tags=["Equipment"])
+app.include_router(appointments_router, prefix=f"{settings.API_V1_PREFIX}/appointments", tags=["Appointments"])
+app.include_router(availability_router, prefix=f"{settings.API_V1_PREFIX}/availability", tags=["Availability"])
 
 
 if __name__ == "__main__":
