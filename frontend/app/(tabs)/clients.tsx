@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../services/api';
 import { Card } from '../../components/ui';
@@ -34,6 +35,7 @@ interface Client {
 }
 
 export default function ClientsScreen() {
+  const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -95,59 +97,61 @@ export default function ClientsScreen() {
   };
 
   const renderItem = ({ item }: { item: Client }) => (
-    <Card style={styles.clientCard}>
-      <View style={styles.cardHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {item.first_name[0]}{item.last_name[0]}
-          </Text>
+    <TouchableOpacity onPress={() => router.push(`/client/${item.client_id}`)}>
+      <Card style={styles.clientCard}>
+        <View style={styles.cardHeader}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {item.first_name[0]}{item.last_name[0]}
+            </Text>
+          </View>
+          <View style={styles.clientInfo}>
+            <Text style={styles.clientName}>
+              {item.first_name} {item.last_name}
+            </Text>
+            <Text style={styles.clientContact}>{item.phone}</Text>
+            {item.email && (
+              <Text style={styles.clientContact}>{item.email}</Text>
+            )}
+          </View>
+          <View
+            style={[
+              styles.statusDot,
+              { backgroundColor: getStatusColor(item.status) },
+            ]}
+          />
         </View>
-        <View style={styles.clientInfo}>
-          <Text style={styles.clientName}>
-            {item.first_name} {item.last_name}
-          </Text>
-          <Text style={styles.clientContact}>{item.phone}</Text>
-          {item.email && (
-            <Text style={styles.clientContact}>{item.email}</Text>
-          )}
-        </View>
-        <View
-          style={[
-            styles.statusDot,
-            { backgroundColor: getStatusColor(item.status) },
-          ]}
-        />
-      </View>
 
-      {item.tags.length > 0 && (
-        <View style={styles.tagsContainer}>
-          {item.tags.slice(0, 3).map((tag, index) => (
-            <View key={index} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
-          ))}
-          {item.tags.length > 3 && (
-            <Text style={styles.moreText}>+{item.tags.length - 3}</Text>
-          )}
-        </View>
-      )}
+        {item.tags.length > 0 && (
+          <View style={styles.tagsContainer}>
+            {item.tags.slice(0, 3).map((tag, index) => (
+              <View key={index} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+            {item.tags.length > 3 && (
+              <Text style={styles.moreText}>+{item.tags.length - 3}</Text>
+            )}
+          </View>
+        )}
 
-      <View style={styles.cardFooter}>
-        <View style={styles.stat}>
-          <Text style={styles.statValue}>{item.completed_appointments}</Text>
-          <Text style={styles.statLabel}>Jobs</Text>
+        <View style={styles.cardFooter}>
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>{item.completed_appointments}</Text>
+            <Text style={styles.statLabel}>Jobs</Text>
+          </View>
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>
+              ${item.lifetime_value.toLocaleString()}
+            </Text>
+            <Text style={styles.statLabel}>Lifetime</Text>
+          </View>
+          <View style={styles.actionButton}>
+            <Ionicons name="chevron-forward" size={20} color={Colors.gray400} />
+          </View>
         </View>
-        <View style={styles.stat}>
-          <Text style={styles.statValue}>
-            ${item.lifetime_value.toLocaleString()}
-          </Text>
-          <Text style={styles.statLabel}>Lifetime</Text>
-        </View>
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="chevron-forward" size={20} color={Colors.gray400} />
-        </TouchableOpacity>
-      </View>
-    </Card>
+      </Card>
+    </TouchableOpacity>
   );
 
   const renderEmpty = () => (
@@ -204,7 +208,7 @@ export default function ClientsScreen() {
       )}
 
       {/* FAB */}
-      <TouchableOpacity style={styles.fab}>
+      <TouchableOpacity style={styles.fab} onPress={() => router.push('/client/create')}>
         <Ionicons name="person-add" size={24} color={Colors.white} />
       </TouchableOpacity>
     </SafeAreaView>
