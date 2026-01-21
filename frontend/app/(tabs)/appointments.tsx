@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../services/api';
 import { Card } from '../../components/ui';
@@ -34,6 +35,7 @@ interface Appointment {
 type FilterStatus = 'all' | 'scheduled' | 'confirmed' | 'completed' | 'canceled';
 
 export default function AppointmentsScreen() {
+  const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -120,38 +122,43 @@ export default function AppointmentsScreen() {
   ];
 
   const renderItem = ({ item }: { item: Appointment }) => (
-    <Card style={styles.appointmentCard}>
-      <View style={styles.cardHeader}>
-        <View>
-          <Text style={styles.dateText}>{formatDate(item.scheduled_date)}</Text>
-          <Text style={styles.timeText}>
-            {formatTime(item.scheduled_time)} - {formatTime(item.end_time)}
-          </Text>
+    <TouchableOpacity
+      onPress={() => router.push(`/appointment/${item.appointment_id}`)}
+      activeOpacity={0.7}
+    >
+      <Card style={styles.appointmentCard}>
+        <View style={styles.cardHeader}>
+          <View>
+            <Text style={styles.dateText}>{formatDate(item.scheduled_date)}</Text>
+            <Text style={styles.timeText}>
+              {formatTime(item.scheduled_time)} - {formatTime(item.end_time)}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: getStatusColor(item.status) + '20' },
+            ]}
+          >
+            <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+              {item.status.charAt(0).toUpperCase() + item.status.slice(1).replace('_', ' ')}
+            </Text>
+          </View>
         </View>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: getStatusColor(item.status) + '20' },
-          ]}
-        >
-          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status.charAt(0).toUpperCase() + item.status.slice(1).replace('_', ' ')}
-          </Text>
-        </View>
-      </View>
 
-      <Text style={styles.servicesText}>
-        {item.services.map(s => s.service_name).join(', ')}
-      </Text>
+        <Text style={styles.servicesText}>
+          {item.services.map(s => s.service_name).join(', ')}
+        </Text>
 
-      <View style={styles.cardFooter}>
-        <Text style={styles.priceText}>${item.total_price.toFixed(2)}</Text>
-        <View style={styles.staffBadge}>
-          <Ionicons name="people-outline" size={14} color={Colors.textSecondary} />
-          <Text style={styles.staffCount}>{item.staff_ids.length}</Text>
+        <View style={styles.cardFooter}>
+          <Text style={styles.priceText}>${item.total_price.toFixed(2)}</Text>
+          <View style={styles.staffBadge}>
+            <Ionicons name="people-outline" size={14} color={Colors.textSecondary} />
+            <Text style={styles.staffCount}>{item.staff_ids.length}</Text>
+          </View>
         </View>
-      </View>
-    </Card>
+      </Card>
+    </TouchableOpacity>
   );
 
   const renderEmpty = () => (
@@ -209,7 +216,11 @@ export default function AppointmentsScreen() {
       )}
 
       {/* FAB */}
-      <TouchableOpacity style={styles.fab}>
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/appointment/create')}
+        activeOpacity={0.8}
+      >
         <Ionicons name="add" size={28} color={Colors.white} />
       </TouchableOpacity>
     </SafeAreaView>
