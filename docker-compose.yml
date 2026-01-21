@@ -1,0 +1,81 @@
+# ServicePro Docker Compose
+# Runs MongoDB + Backend API
+
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: servicepro-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-admin123}
+      MONGO_INITDB_DATABASE: ${DATABASE_NAME:-servicepro_dev}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./backend/scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - servicepro-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: servicepro-backend
+    restart: unless-stopped
+    environment:
+      - MONGO_URL=mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-admin123}@mongodb:27017/${DATABASE_NAME:-servicepro_dev}?authSource=admin
+      - DATABASE_NAME=${DATABASE_NAME:-servicepro_dev}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-super-secret-jwt-key-change-in-production}
+      - JWT_REFRESH_SECRET_KEY=${JWT_REFRESH_SECRET_KEY:-your-super-secret-refresh-key-change-in-production}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DEBUG=${DEBUG:-true}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:19006,http://localhost:8081}
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - servicepro-network
+
+  # Seed service (runs once to populate demo data)
+  seed:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: servicepro-seed
+    environment:
+      - MONGO_URL=mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-admin123}@mongodb:27017/${DATABASE_NAME:-servicepro_dev}?authSource=admin
+      - DATABASE_NAME=${DATABASE_NAME:-servicepro_dev}
+    command: python -m scripts.seed
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - servicepro-network
+    profiles:
+      - seed
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  servicepro-network:
+    driver: bridge
