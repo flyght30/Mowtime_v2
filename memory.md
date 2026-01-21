@@ -15,12 +15,12 @@
 - [x] **Phase 1B: Frontend Foundation** - COMPLETE
 - [x] **Phase 1C: Core Features UI (Basic)** - COMPLETE
 - [x] **Phase 1D: Scheduling Engine** - COMPLETE
+- [x] **Phase 1E: Notifications System** - COMPLETE
 
 ### In Progress
-- [ ] Phase 1E: Notifications System
+- [ ] Phase 2: AI Voice Receptionist
 
 ### Pending
-- [ ] Phase 2: AI Voice Receptionist
 - [ ] Phase 3: Payments & Advanced Features
 
 ---
@@ -31,12 +31,6 @@
 
 #### Milestone: Phase 1A - Backend Foundation
 - **Status:** COMPLETE
-- **Commits:**
-  1. `feat(backend): Phase 1A.1 - Backend structure & config module`
-  2. `feat(backend): Phase 1A.2 - Complete Pydantic database models`
-  3. `feat(backend): Phase 1A.3 & 1A.4 - JWT Auth & RBAC Middleware`
-  4. `feat(backend): Phase 1A.5 - Complete CRUD APIs for all entities`
-  5. `feat(backend): Phase 1A.6 - Comprehensive error handling`
 
 **Backend Implementation Summary:**
 - **Config:** pydantic-settings with env file support
@@ -49,8 +43,6 @@
 
 #### Milestone: Phase 1B - Frontend Foundation
 - **Status:** COMPLETE
-- **Commits:**
-  1. `feat(frontend): Phase 1B - Complete frontend foundation`
 
 **Frontend Implementation Summary:**
 - **Navigation:** Expo Router with auth/tabs layouts
@@ -62,8 +54,6 @@
 
 #### Milestone: Phase 1C - Core Features UI (Basic)
 - **Status:** COMPLETE
-- **Commits:**
-  1. `feat(frontend): Phase 1C - Core feature screens`
 
 **Core Screens Implemented:**
 - Dashboard with key metrics and quick actions
@@ -73,8 +63,6 @@
 
 #### Milestone: Phase 1D - Scheduling Engine
 - **Status:** COMPLETE
-- **Commits:**
-  1. `feat(backend): Phase 1D - Scheduling Engine with weather-aware scheduling`
 
 **Scheduling Features:**
 - Weather service with OpenWeatherMap integration (15-min caching)
@@ -83,26 +71,46 @@
 - Weather forecast and suitability checks
 - Auto-reschedule for inclement weather
 
+#### Milestone: Phase 1E - Notifications System
+- **Status:** COMPLETE
+- **Commit:** `feat(backend): Phase 1E - Notifications System`
+
+**Notification Features:**
+- SMS service with Twilio integration
+- Push notification service with Firebase FCM
+- Email service with SendGrid (HTML templates)
+- Notification orchestration service
+- Queue processing for background jobs
+- Appointment confirmation and reminder scheduling
+- Bulk notification support
+- Test endpoints for configuration validation
+
 **New API Endpoints:**
 ```
-/api/v1/scheduling/slots           - Get available time slots
-/api/v1/scheduling/check-conflicts - Check for scheduling conflicts
-/api/v1/scheduling/business-hours  - Get business hours for date
-/api/v1/scheduling/weather/forecast - Get weather forecast
-/api/v1/scheduling/weather/check   - Check weather conditions
-/api/v1/scheduling/weather/auto-reschedule - Auto-reschedule for weather
-/api/v1/scheduling/appointments/{id}/weather-check - Check specific appointment
+/api/v1/notifications              GET    - List notifications
+/api/v1/notifications              POST   - Create notification
+/api/v1/notifications/stats        GET    - Get notification stats
+/api/v1/notifications/process-queue POST  - Process pending queue
+/api/v1/notifications/schedule-reminders POST - Schedule reminders
+/api/v1/notifications/bulk         POST   - Create bulk notifications
+/api/v1/notifications/test/sms     POST   - Test SMS config
+/api/v1/notifications/test/email   POST   - Test email config
+/api/v1/notifications/{id}         GET    - Get notification
+/api/v1/notifications/{id}         DELETE - Cancel notification
+/api/v1/notifications/{id}/send    POST   - Send queued notification
+/api/v1/notifications/appointment/{id}/confirm POST - Send confirmation
+/api/v1/notifications/recipient/{id}/history GET - Recipient history
 ```
 
-#### Milestone: Phase 1E - Notifications System
+#### Milestone: Phase 2 - AI Voice Receptionist
 - **Status:** IN PROGRESS
 - **Tasks:**
-  1. [ ] Notification model enhancements
-  2. [ ] Twilio SMS service integration
-  3. [ ] Firebase push notification service
-  4. [ ] Email service (template-based)
-  5. [ ] Notification router with send/queue endpoints
-  6. [ ] Background job processing for queued notifications
+  1. [ ] Twilio programmable voice integration
+  2. [ ] ElevenLabs voice synthesis service
+  3. [ ] Call handling router and webhook endpoints
+  4. [ ] AI conversation flow for booking
+  5. [ ] Call recording and transcription
+  6. [ ] Voice mailbox system
 
 ---
 
@@ -193,6 +201,21 @@
 /api/v1/scheduling/weather/check   POST   - Check weather conditions
 /api/v1/scheduling/weather/auto-reschedule POST - Auto-reschedule
 /api/v1/scheduling/appointments/{id}/weather-check POST - Check appointment weather
+
+# Notifications
+/api/v1/notifications              GET    - List notifications
+/api/v1/notifications              POST   - Create notification
+/api/v1/notifications/stats        GET    - Get notification stats
+/api/v1/notifications/process-queue POST  - Process pending queue
+/api/v1/notifications/schedule-reminders POST - Schedule reminders
+/api/v1/notifications/bulk         POST   - Create bulk notifications
+/api/v1/notifications/test/sms     POST   - Test SMS config
+/api/v1/notifications/test/email   POST   - Test email config
+/api/v1/notifications/{id}         GET    - Get notification
+/api/v1/notifications/{id}         DELETE - Cancel notification
+/api/v1/notifications/{id}/send    POST   - Send queued notification
+/api/v1/notifications/appointment/{id}/confirm POST - Send confirmation
+/api/v1/notifications/recipient/{id}/history GET - Recipient history
 ```
 
 ---
@@ -214,14 +237,17 @@ OPENWEATHER_API_KEY=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_PHONE_NUMBER=
-FIREBASE_CONFIG=
+FIREBASE_PROJECT_ID=
+FIREBASE_CREDENTIALS_PATH=
 SENDGRID_API_KEY=
+SENDGRID_FROM_EMAIL=noreply@servicepro.app
 
 # AI Voice (Phase 2)
 ELEVENLABS_API_KEY=
 
 # Payments (Phase 3)
 STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
 ```
 
 ---
@@ -259,12 +285,17 @@ backend/
 │   │   ├── equipment.py
 │   │   ├── appointments.py
 │   │   ├── availability.py
-│   │   └── scheduling.py
+│   │   ├── scheduling.py
+│   │   └── notifications.py
 │   ├── services/
 │   │   ├── auth_service.py
 │   │   ├── base_service.py
 │   │   ├── weather_service.py
-│   │   └── scheduling_service.py
+│   │   ├── scheduling_service.py
+│   │   ├── sms_service.py
+│   │   ├── push_service.py
+│   │   ├── email_service.py
+│   │   └── notification_service.py
 │   ├── middleware/
 │   │   └── auth.py
 │   └── utils/
