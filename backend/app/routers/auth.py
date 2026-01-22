@@ -14,6 +14,8 @@ from app.schemas.auth import (
     TokenResponse,
     RefreshRequest,
     PasswordChangeRequest,
+    PasswordResetRequest,
+    PasswordResetConfirm,
     UserProfileResponse
 )
 from app.schemas.common import MessageResponse, ErrorResponse, ErrorDetail
@@ -201,3 +203,117 @@ async def logout():
     # 1. Add the token to a blacklist in Redis
     # 2. Invalidate refresh tokens in the database
     return MessageResponse(message="Logged out successfully")
+
+
+@router.post(
+    "/forgot-password",
+    response_model=MessageResponse,
+    responses={
+        200: {"description": "Reset email sent (or user doesn't exist)"}
+    }
+)
+async def forgot_password(
+    data: PasswordResetRequest,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """
+    Request a password reset email
+
+    If the email exists, a password reset link will be sent.
+    Always returns success to prevent email enumeration.
+    """
+    import os
+    from app.services.email_service import get_email_service
+    from app.services.email_templates import render_password_reset
+
+    # Create reset token
+    token = await auth_service.create_password_reset_token(data.email)
+
+    if token:
+        # Get user info for email
+        user = await auth_service.get_user_for_reset(data.email)
+        if user:
+            # Build reset link
+            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:8081")
+            reset_link = f"{frontend_url}/reset-password?token={token}"
+
+            # Send email
+            email_service = get_email_service()
+            if email_service.is_configured:
+                user_name = f"{user.first_name} {user.last_name}".strip() or "User"
+                html_content = render_password_reset(
+                    user_name=user_name,
+                    reset_link=reset_link,
+                    expires_minutes=60
+                )
+                await email_service.send_email(
+                    to_email=data.email,
+                    subject="Reset Your Password",
+                    html_content=html_content,
+                    to_name=user_name
+                )
+
+    # Always return success to prevent email enumeration
+    return MessageResponse(
+        message="If an account exists with this email, a password reset link has been sent."
+    )
+
+
+@router.post(
+    "/reset-password",
+    response_model=MessageResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid or expired token"}
+    }
+)
+async def reset_password(
+    data: PasswordResetConfirm,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """
+    Reset password using token from email
+
+    Validates the token and sets the new password.
+    """
+    try:
+        await auth_service.reset_password(data.token, data.new_password)
+        return MessageResponse(message="Password has been reset successfully")
+
+    except AuthError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": e.code, "message": e.message}
+        )
+
+
+@router.get(
+    "/verify-reset-token",
+    response_model=dict,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid or expired token"}
+    }
+)
+async def verify_reset_token(
+    token: str,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """
+    Verify a password reset token is valid
+
+    Use this to check if a reset link is still valid before showing the form.
+    """
+    user = await auth_service.verify_password_reset_token(token)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_TOKEN", "message": "Invalid or expired reset token"}
+        )
+
+    return {
+        "success": True,
+        "data": {
+            "valid": True,
+            "email": user.email
+        }
+    }

@@ -376,6 +376,114 @@ class EmailService:
         )
 
 
+    # ============== New Template Methods ==============
+
+    async def send_booking_confirmation(
+        self,
+        to_email: str,
+        client_name: str,
+        business_name: str,
+        service_name: str,
+        scheduled_date: str,
+        scheduled_time: str,
+        confirmation_number: str,
+        address: str,
+        total_price: float,
+        business_phone: str,
+        business_email: str
+    ) -> EmailResult:
+        """Send booking confirmation email using new template"""
+        from app.services.email_templates import render_booking_confirmation
+
+        html_content = render_booking_confirmation(
+            client_name=client_name,
+            business_name=business_name,
+            service_name=service_name,
+            scheduled_date=scheduled_date,
+            scheduled_time=scheduled_time,
+            confirmation_number=confirmation_number,
+            address=address,
+            total_price=total_price,
+            business_phone=business_phone,
+            business_email=business_email
+        )
+
+        return await self.send_email(
+            to_email=to_email,
+            subject=f"Booking Confirmed - {service_name} on {scheduled_date}",
+            html_content=html_content,
+            to_name=client_name
+        )
+
+    async def send_invoice_email(
+        self,
+        to_email: str,
+        client_name: str,
+        business_name: str,
+        invoice_number: str,
+        amount_due: float,
+        due_date: str,
+        line_items: list,
+        payment_link: Optional[str] = None,
+        business_phone: str = "",
+        business_email: str = ""
+    ) -> EmailResult:
+        """Send invoice email"""
+        from app.services.email_templates import render_invoice_sent
+
+        html_content = render_invoice_sent(
+            client_name=client_name,
+            business_name=business_name,
+            invoice_number=invoice_number,
+            amount_due=amount_due,
+            due_date=due_date,
+            line_items=line_items,
+            payment_link=payment_link,
+            business_phone=business_phone,
+            business_email=business_email
+        )
+
+        return await self.send_email(
+            to_email=to_email,
+            subject=f"Invoice #{invoice_number} from {business_name}",
+            html_content=html_content,
+            to_name=client_name
+        )
+
+    async def send_payment_receipt(
+        self,
+        to_email: str,
+        client_name: str,
+        business_name: str,
+        invoice_number: str,
+        amount_paid: float,
+        payment_date: str,
+        payment_method: str = "Credit Card",
+        remaining_balance: float = 0,
+        business_phone: str = ""
+    ) -> EmailResult:
+        """Send payment received/receipt email"""
+        from app.services.email_templates import render_payment_received
+
+        html_content = render_payment_received(
+            client_name=client_name,
+            business_name=business_name,
+            invoice_number=invoice_number,
+            amount_paid=amount_paid,
+            payment_date=payment_date,
+            payment_method=payment_method,
+            remaining_balance=remaining_balance,
+            business_phone=business_phone
+        )
+
+        return await self.send_email(
+            to_email=to_email,
+            subject=f"Payment Received - ${amount_paid:.2f}",
+            html_content=html_content,
+            to_name=client_name
+        )
+
+
 # Singleton instance
 _email_service: Optional[EmailService] = None
 

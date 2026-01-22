@@ -1,10 +1,13 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Request
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 import os
 import logging
+import time
 from pathlib import Path
 from contextlib import asynccontextmanager
+from collections import defaultdict
 
 # Load environment
 ROOT_DIR = Path(__file__).parent
@@ -24,6 +27,46 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+# ============== Simple Rate Limiter ==============
+
+class RateLimiter:
+    """Simple in-memory rate limiter for public endpoints"""
+
+    def __init__(self, requests_per_minute: int = 60):
+        self.requests_per_minute = requests_per_minute
+        self.requests = defaultdict(list)
+
+    def is_allowed(self, client_ip: str) -> bool:
+        """Check if request is allowed"""
+        now = time.time()
+        minute_ago = now - 60
+
+        # Clean old requests
+        self.requests[client_ip] = [
+            t for t in self.requests[client_ip] if t > minute_ago
+        ]
+
+        # Check limit
+        if len(self.requests[client_ip]) >= self.requests_per_minute:
+            return False
+
+        # Record request
+        self.requests[client_ip].append(now)
+        return True
+
+    def get_retry_after(self, client_ip: str) -> int:
+        """Get seconds until next request allowed"""
+        if not self.requests[client_ip]:
+            return 0
+        oldest = min(self.requests[client_ip])
+        return max(0, int(60 - (time.time() - oldest)))
+
+
+# Rate limiters for different endpoints
+portal_rate_limiter = RateLimiter(requests_per_minute=60)  # 60 req/min for portal
+auth_rate_limiter = RateLimiter(requests_per_minute=10)    # 10 req/min for auth
 
 
 @asynccontextmanager
@@ -52,15 +95,87 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:19006,http://localhost:8081").split(",")
+# CORS middleware - explicit origins for security
+# Default includes: Next.js portal (3000), Expo web (19006, 8081)
+default_origins = [
+    "http://localhost:3000",      # Next.js portal dev
+    "http://localhost:19006",     # Expo web dev
+    "http://localhost:8081",      # Expo web dev alt
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:19006",
+    "http://127.0.0.1:8081",
+]
+
+# Add custom origins from env (comma-separated)
+custom_origins = os.getenv("CORS_ORIGINS", "").split(",")
+custom_origins = [o.strip() for o in custom_origins if o.strip()]
+
+# Portal domain from env
+portal_domain = os.getenv("PORTAL_DOMAIN", "")
+if portal_domain:
+    custom_origins.append(f"https://{portal_domain}")
+    custom_origins.append(f"http://{portal_domain}")
+
+all_origins = list(set(default_origins + custom_origins))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=cors_origins + ["*"],
-    allow_methods=["*"],
+    allow_origins=all_origins,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+# Rate limiting middleware for public endpoints
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Apply rate limiting to public portal and auth endpoints"""
+    path = request.url.path
+
+    # Get client IP
+    client_ip = request.client.host if request.client else "unknown"
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+
+    # Apply rate limiting to portal endpoints
+    if path.startswith("/api/v1/portal"):
+        if not portal_rate_limiter.is_allowed(client_ip):
+            retry_after = portal_rate_limiter.get_retry_after(client_ip)
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "success": False,
+                    "error": {
+                        "code": "RATE_LIMITED",
+                        "message": "Too many requests. Please try again later."
+                    }
+                },
+                headers={"Retry-After": str(retry_after)}
+            )
+
+    # Stricter rate limiting for auth endpoints
+    if path.startswith("/api/v1/auth/") and path in [
+        "/api/v1/auth/login",
+        "/api/v1/auth/register",
+        "/api/v1/auth/forgot-password"
+    ]:
+        if not auth_rate_limiter.is_allowed(client_ip):
+            retry_after = auth_rate_limiter.get_retry_after(client_ip)
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "success": False,
+                    "error": {
+                        "code": "RATE_LIMITED",
+                        "message": "Too many attempts. Please wait before trying again."
+                    }
+                },
+                headers={"Retry-After": str(retry_after)}
+            )
+
+    return await call_next(request)
 
 # Create versioned API router
 api_v1 = APIRouter(prefix="/api/v1")

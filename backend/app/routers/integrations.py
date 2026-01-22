@@ -41,6 +41,18 @@ def check_twilio_configured() -> dict:
     }
 
 
+def check_sendgrid_configured() -> dict:
+    """Check if SendGrid email is configured"""
+    api_key = os.getenv("SENDGRID_API_KEY", "")
+    configured = bool(api_key)
+    return {
+        "name": "sendgrid",
+        "display_name": "SendGrid Email",
+        "configured": configured,
+        "description": "Send transactional emails" if configured else "Set SENDGRID_API_KEY to enable email notifications"
+    }
+
+
 def check_quickbooks_configured() -> dict:
     """Check if QuickBooks is configured"""
     client_id = os.getenv("QUICKBOOKS_CLIENT_ID", "")
@@ -90,6 +102,18 @@ def check_elevenlabs_configured() -> dict:
     }
 
 
+def check_firebase_configured() -> dict:
+    """Check if Firebase push notifications are configured"""
+    credentials_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
+    configured = bool(credentials_path and os.path.exists(credentials_path))
+    return {
+        "name": "firebase",
+        "display_name": "Firebase Push",
+        "configured": configured,
+        "description": "Mobile push notifications" if configured else "Set FIREBASE_CREDENTIALS_PATH to enable push notifications"
+    }
+
+
 @router.get(
     "/status",
     summary="Get all integration statuses"
@@ -105,10 +129,12 @@ async def get_integrations_status(
     integrations = [
         check_stripe_configured(),
         check_twilio_configured(),
+        check_sendgrid_configured(),
         check_quickbooks_configured(),
         check_google_maps_configured(),
         check_openweather_configured(),
         check_elevenlabs_configured(),
+        check_firebase_configured(),
     ]
 
     configured_count = sum(1 for i in integrations if i["configured"])
@@ -138,10 +164,12 @@ async def get_integration_status(
     checkers = {
         "stripe": check_stripe_configured,
         "twilio": check_twilio_configured,
+        "sendgrid": check_sendgrid_configured,
         "quickbooks": check_quickbooks_configured,
         "google_maps": check_google_maps_configured,
         "openweather": check_openweather_configured,
         "elevenlabs": check_elevenlabs_configured,
+        "firebase": check_firebase_configured,
     }
 
     checker = checkers.get(service_name.lower())

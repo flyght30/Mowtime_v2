@@ -6,6 +6,8 @@ Handles user registration, login, and token management
 from typing import Optional, Tuple
 from motor.motor_asyncio import AsyncIOMotorDatabase
 import logging
+import secrets
+from datetime import datetime, timedelta
 
 from app.models.user import User, UserRole
 from app.models.business import Business, BusinessPlan, SubscriptionStatus, ServiceVertical
@@ -23,6 +25,9 @@ from app.config import get_settings
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
+
+# Password reset token expiry in minutes
+PASSWORD_RESET_EXPIRE_MINUTES = 60
 
 
 class AuthError(Exception):
@@ -310,3 +315,105 @@ class AuthService:
             TokenData if valid, None otherwise
         """
         return verify_token(token, token_type="access")
+
+    async def create_password_reset_token(self, email: str) -> Optional[str]:
+        """
+        Create a password reset token for user
+
+        Args:
+            email: User's email address
+
+        Returns:
+            Reset token if user exists, None otherwise
+        """
+        user = await self.get_user_by_email(email)
+        if not user:
+            # Don't reveal if user exists - return None silently
+            logger.info(f"Password reset requested for non-existent email: {email}")
+            return None
+
+        # Generate secure token
+        token = secrets.token_urlsafe(32)
+        expires_at = utc_now() + timedelta(minutes=PASSWORD_RESET_EXPIRE_MINUTES)
+
+        # Store token in database
+        await self.db.password_reset_tokens.delete_many({"user_id": user.user_id})
+        await self.db.password_reset_tokens.insert_one({
+            "token": token,
+            "user_id": user.user_id,
+            "email": email.lower(),
+            "expires_at": expires_at,
+            "created_at": utc_now(),
+            "used": False
+        })
+
+        logger.info(f"Password reset token created for: {email}")
+        return token
+
+    async def verify_password_reset_token(self, token: str) -> Optional[User]:
+        """
+        Verify a password reset token
+
+        Args:
+            token: Reset token
+
+        Returns:
+            User if token is valid, None otherwise
+        """
+        token_doc = await self.db.password_reset_tokens.find_one({
+            "token": token,
+            "used": False,
+            "expires_at": {"$gt": utc_now()}
+        })
+
+        if not token_doc:
+            return None
+
+        user = await self.get_user_by_id(token_doc["user_id"])
+        return user
+
+    async def reset_password(self, token: str, new_password: str) -> bool:
+        """
+        Reset password using token
+
+        Args:
+            token: Reset token
+            new_password: New password
+
+        Returns:
+            True if successful
+
+        Raises:
+            AuthError: If token is invalid or expired
+        """
+        token_doc = await self.db.password_reset_tokens.find_one({
+            "token": token,
+            "used": False,
+            "expires_at": {"$gt": utc_now()}
+        })
+
+        if not token_doc:
+            raise AuthError("INVALID_TOKEN", "Invalid or expired reset token")
+
+        # Update password
+        new_hash = get_password_hash(new_password)
+        await self.users.update_one(
+            {"user_id": token_doc["user_id"]},
+            {"$set": {
+                "password_hash": new_hash,
+                "updated_at": utc_now()
+            }}
+        )
+
+        # Mark token as used
+        await self.db.password_reset_tokens.update_one(
+            {"token": token},
+            {"$set": {"used": True, "used_at": utc_now()}}
+        )
+
+        logger.info(f"Password reset completed for user: {token_doc['user_id']}")
+        return True
+
+    async def get_user_for_reset(self, email: str) -> Optional[User]:
+        """Get user by email for password reset (returns user info for email template)"""
+        return await self.get_user_by_email(email)
