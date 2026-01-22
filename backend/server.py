@@ -20,6 +20,13 @@ from app.database import Database
 from app.routers import auth, appointments, clients, services, staff, businesses
 from app.routers import availability, scheduling, equipment, notifications, payments, voice
 from app.routers import portal, analytics, quickbooks, routes, reminders, integrations
+from app.routers import vertical_management
+
+# Import vertical system - this auto-registers all verticals
+from app.verticals import vertical_registry
+# Import vertical modules to trigger registration
+from app.verticals import lawn_care  # noqa: F401
+from app.verticals import hvac  # noqa: F401
 
 # Configure logging
 logging.basicConfig(
@@ -79,6 +86,18 @@ async def lifespan(app: FastAPI):
     # Add slug index for portal
     if Database.db is not None:
         await Database.db.businesses.create_index("slug", sparse=True)
+
+        # Create indexes for vertical collections
+        logger.info(f"Registered verticals: {vertical_registry.get_vertical_ids()}")
+        for index_config in vertical_registry.get_all_indexes():
+            try:
+                collection = Database.db[index_config["collection"]]
+                await collection.create_index(
+                    index_config["keys"],
+                    **index_config.get("options", {})
+                )
+            except Exception as e:
+                logger.warning(f"Index creation warning: {e}")
 
     yield
 
@@ -211,6 +230,13 @@ api_v1.include_router(reminders.router, prefix="/reminders", tags=["Reminders"])
 
 # Integrations status router
 api_v1.include_router(integrations.router, prefix="/integrations", tags=["Integrations"])
+
+# Vertical management router
+api_v1.include_router(vertical_management.router, prefix="/verticals", tags=["Verticals"])
+
+# Dynamic vertical routes - loads routes from all registered verticals
+vertical_router = vertical_registry.get_combined_router(prefix="")
+api_v1.include_router(vertical_router, tags=["Vertical Services"])
 
 # Include versioned router
 app.include_router(api_v1)

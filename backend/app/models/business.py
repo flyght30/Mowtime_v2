@@ -5,7 +5,7 @@ Multi-tenant business accounts with vertical-specific configuration
 
 from datetime import time
 from enum import Enum
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 
 from app.models.common import BaseDocument, generate_id
@@ -86,6 +86,15 @@ class NotificationSettings(BaseModel):
     digest_time: str = "06:00"  # HH:MM
 
 
+class VerticalSettings(BaseModel):
+    """Per-vertical configuration for a business"""
+    vertical_id: str
+    enabled: bool = True
+    enabled_at: Optional[str] = None
+    disabled_at: Optional[str] = None
+    custom_config: Dict[str, Any] = Field(default_factory=dict)
+
+
 class BusinessConfig(BaseModel):
     """Business-specific configuration"""
     business_hours: BusinessHours = Field(default_factory=BusinessHours)
@@ -108,6 +117,13 @@ class BusinessConfig(BaseModel):
     # Customization
     primary_color: str = "#2563EB"
     logo_url: Optional[str] = None
+
+    # Vertical configuration
+    # List of enabled verticals with their settings
+    # Note: This is separate from the primary 'vertical' field which indicates
+    # the business's main vertical. A business can enable multiple verticals.
+    enabled_verticals: List[VerticalSettings] = Field(default_factory=list)
+    vertical_configs: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
 
 
 class Business(BaseDocument):
