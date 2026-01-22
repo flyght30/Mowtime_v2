@@ -20,7 +20,7 @@ from app.database import Database
 from app.routers import auth, appointments, clients, services, staff, businesses
 from app.routers import availability, scheduling, equipment, notifications, payments, voice
 from app.routers import portal, analytics, quickbooks, routes, reminders, integrations
-from app.routers import vertical_management
+from app.routers import vertical_management, branding
 
 # Import vertical system - this auto-registers all verticals
 from app.verticals import vertical_registry
@@ -230,6 +230,9 @@ api_v1.include_router(reminders.router, prefix="/reminders", tags=["Reminders"])
 
 # Integrations status router
 api_v1.include_router(integrations.router, prefix="/integrations", tags=["Integrations"])
+
+# App branding router (public - no auth required)
+api_v1.include_router(branding.router, prefix="/branding", tags=["Branding"])
 
 # Vertical management router
 api_v1.include_router(vertical_management.router, prefix="/verticals", tags=["Verticals"])
