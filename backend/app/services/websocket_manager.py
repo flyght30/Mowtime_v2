@@ -218,6 +218,72 @@ class ConnectionManager:
                     connected.append(tech_id)
         return connected
 
+    async def broadcast_voice_note_status(
+        self,
+        business_id: str,
+        voice_note_id: str,
+        status: str,
+        summary: Optional[str] = None,
+        tech_id: Optional[str] = None,
+        error: Optional[str] = None
+    ) -> None:
+        """
+        Broadcast voice note processing status update.
+
+        Status values: uploaded, transcribing, summarizing, complete, failed
+        """
+        message = WSMessage(
+            type="voice_note_status",
+            data={
+                "voice_note_id": voice_note_id,
+                "status": status,
+                "summary": summary,
+                "tech_id": tech_id,
+                "error": error
+            }
+        )
+        await self.broadcast_to_business(business_id, message)
+
+        # Also notify the tech who recorded it
+        if tech_id:
+            await self.send_to_tech(tech_id, message)
+
+    async def broadcast_call_event(
+        self,
+        business_id: str,
+        call_id: str,
+        event_type: str,  # incoming, started, ended, booking_created
+        data: dict
+    ) -> None:
+        """Broadcast voice call events"""
+        message = WSMessage(
+            type="call_event",
+            data={
+                "call_id": call_id,
+                "event": event_type,
+                **data
+            }
+        )
+        await self.broadcast_to_business(business_id, message)
+
+    async def broadcast_dispatch_suggestion(
+        self,
+        business_id: str,
+        suggestion_id: str,
+        job_id: str,
+        top_tech: dict
+    ) -> None:
+        """Broadcast new AI dispatch suggestion"""
+        message = WSMessage(
+            type="dispatch_suggestion",
+            data={
+                "suggestion_id": suggestion_id,
+                "job_id": job_id,
+                "top_recommendation": top_tech
+            }
+        )
+        await self.broadcast_to_business(business_id, message)
+
 
 # Global instance
 manager = ConnectionManager()

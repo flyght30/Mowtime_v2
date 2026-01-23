@@ -106,6 +106,17 @@ export default function TabsLayout() {
         }}
       />
 
+      {/* Voice Calls Tab - AI Receptionist call log */}
+      <Tabs.Screen
+        name="voice-calls"
+        options={{
+          title: 'Calls',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="call-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
       {/* HVAC Tab - only shown when HVAC is enabled */}
       <Tabs.Screen
         name="hvac-hub"

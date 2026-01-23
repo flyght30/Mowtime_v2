@@ -393,23 +393,49 @@ class CallService:
         self,
         business_name: str,
         webhook_url: str,
-        voice_id: Optional[str] = None
+        voice_id: Optional[str] = None,
+        base_url: Optional[str] = None
     ) -> str:
         """
         Generate TwiML for initial greeting with AI voice.
-        Uses ElevenLabs for voice synthesis, falls back to Twilio TTS.
+        Uses ElevenLabs for voice synthesis when configured, falls back to Twilio TTS.
         """
-        greeting = self.voice.get_greeting_text(business_name)
+        from urllib.parse import quote
 
-        # For now, use Twilio's built-in TTS
-        # In production, pre-generate and host ElevenLabs audio
-        twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+        greeting = self.voice.get_greeting_text(business_name)
+        followup = "Please tell me how I can help you."
+        no_input = "I didn't hear anything. Goodbye."
+
+        use_elevenlabs = self.voice.is_configured and base_url
+
+        if use_elevenlabs:
+            # Use ElevenLabs streaming audio
+            greeting_url = f"{base_url}/api/v1/voice/audio/stream?text={quote(greeting)}"
+            followup_url = f"{base_url}/api/v1/voice/audio/stream?text={quote(followup)}"
+            no_input_url = f"{base_url}/api/v1/voice/audio/stream?text={quote(no_input)}"
+
+            if voice_id:
+                greeting_url += f"&voice_id={voice_id}"
+                followup_url += f"&voice_id={voice_id}"
+                no_input_url += f"&voice_id={voice_id}"
+
+            twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Play>{greeting_url}</Play>
+    <Gather input="speech" action="{webhook_url}/gather" method="POST" speechTimeout="auto" language="en-US">
+        <Play>{followup_url}</Play>
+    </Gather>
+    <Play>{no_input_url}</Play>
+</Response>"""
+        else:
+            # Fall back to Twilio TTS
+            twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Say voice="Polly.Joanna">{greeting}</Say>
     <Gather input="speech" action="{webhook_url}/gather" method="POST" speechTimeout="auto" language="en-US">
-        <Say voice="Polly.Joanna">Please tell me how I can help you.</Say>
+        <Say voice="Polly.Joanna">{followup}</Say>
     </Gather>
-    <Say voice="Polly.Joanna">I didn't hear anything. Goodbye.</Say>
+    <Say voice="Polly.Joanna">{no_input}</Say>
 </Response>"""
         return twiml
 
@@ -417,17 +443,38 @@ class CallService:
         self,
         message: str,
         gather_url: Optional[str] = None,
-        end_call: bool = False
+        end_call: bool = False,
+        base_url: Optional[str] = None,
+        voice_id: Optional[str] = None
     ) -> str:
-        """Generate TwiML response with message"""
+        """
+        Generate TwiML response with message.
+        Uses ElevenLabs when base_url is provided and configured.
+        """
+        from urllib.parse import quote
+
+        use_elevenlabs = self.voice.is_configured and base_url
+
         twiml = '<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n'
 
-        if gather_url and not end_call:
-            twiml += f'    <Gather input="speech" action="{gather_url}" method="POST" speechTimeout="auto">\n'
-            twiml += f'        <Say voice="Polly.Joanna">{message}</Say>\n'
-            twiml += '    </Gather>\n'
+        if use_elevenlabs:
+            audio_url = f"{base_url}/api/v1/voice/audio/stream?text={quote(message)}"
+            if voice_id:
+                audio_url += f"&voice_id={voice_id}"
+
+            if gather_url and not end_call:
+                twiml += f'    <Gather input="speech" action="{gather_url}" method="POST" speechTimeout="auto">\n'
+                twiml += f'        <Play>{audio_url}</Play>\n'
+                twiml += '    </Gather>\n'
+            else:
+                twiml += f'    <Play>{audio_url}</Play>\n'
         else:
-            twiml += f'    <Say voice="Polly.Joanna">{message}</Say>\n'
+            if gather_url and not end_call:
+                twiml += f'    <Gather input="speech" action="{gather_url}" method="POST" speechTimeout="auto">\n'
+                twiml += f'        <Say voice="Polly.Joanna">{message}</Say>\n'
+                twiml += '    </Gather>\n'
+            else:
+                twiml += f'    <Say voice="Polly.Joanna">{message}</Say>\n'
 
         if end_call:
             twiml += '    <Hangup/>\n'
@@ -438,27 +485,65 @@ class CallService:
     def generate_twiml_voicemail(
         self,
         business_name: str,
-        recording_callback_url: str
+        recording_callback_url: str,
+        base_url: Optional[str] = None,
+        voice_id: Optional[str] = None
     ) -> str:
         """Generate TwiML for voicemail prompt"""
-        prompt = self.voice.get_voicemail_prompt(business_name)
+        from urllib.parse import quote
 
-        twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+        prompt = self.voice.get_voicemail_prompt(business_name)
+        thanks = "Thank you for your message. Goodbye."
+
+        use_elevenlabs = self.voice.is_configured and base_url
+
+        if use_elevenlabs:
+            prompt_url = f"{base_url}/api/v1/voice/audio/stream?text={quote(prompt)}"
+            thanks_url = f"{base_url}/api/v1/voice/audio/stream?text={quote(thanks)}"
+            if voice_id:
+                prompt_url += f"&voice_id={voice_id}"
+                thanks_url += f"&voice_id={voice_id}"
+
+            twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Play>{prompt_url}</Play>
+    <Record maxLength="120" playBeep="true" action="{recording_callback_url}" transcribe="true" transcribeCallback="{recording_callback_url}/transcription"/>
+    <Play>{thanks_url}</Play>
+</Response>"""
+        else:
+            twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Say voice="Polly.Joanna">{prompt}</Say>
     <Record maxLength="120" playBeep="true" action="{recording_callback_url}" transcribe="true" transcribeCallback="{recording_callback_url}/transcription"/>
-    <Say voice="Polly.Joanna">Thank you for your message. Goodbye.</Say>
+    <Say voice="Polly.Joanna">{thanks}</Say>
 </Response>"""
         return twiml
 
     def generate_twiml_transfer(
         self,
-        transfer_number: str
+        transfer_number: str,
+        base_url: Optional[str] = None,
+        voice_id: Optional[str] = None
     ) -> str:
         """Generate TwiML for call transfer"""
+        from urllib.parse import quote
+
         message = self.voice.get_transfer_text()
 
-        twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+        use_elevenlabs = self.voice.is_configured and base_url
+
+        if use_elevenlabs:
+            audio_url = f"{base_url}/api/v1/voice/audio/stream?text={quote(message)}"
+            if voice_id:
+                audio_url += f"&voice_id={voice_id}"
+
+            twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Play>{audio_url}</Play>
+    <Dial>{transfer_number}</Dial>
+</Response>"""
+        else:
+            twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Say voice="Polly.Joanna">{message}</Say>
     <Dial>{transfer_number}</Dial>

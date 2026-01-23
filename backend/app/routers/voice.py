@@ -1,12 +1,15 @@
 """
 Voice API Router
-Twilio webhooks and AI voice receptionist endpoints
+Twilio webhooks and AI voice receptionist endpoints with ElevenLabs integration
 """
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, Form
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import Optional
+from urllib.parse import quote, unquote
+import base64
 
 from app.database import get_database
 from app.models.call import (
@@ -23,8 +26,12 @@ from app.schemas.common import (
 )
 from app.config import get_settings
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 settings = get_settings()
+
+# In-memory cache for pre-generated audio (simple cache for demo)
+_audio_cache: dict = {}
 
 
 def get_call_service(
@@ -91,10 +98,16 @@ async def handle_incoming_call(
     base_url = str(request.base_url).rstrip("/")
     webhook_url = f"{base_url}/api/v1/voice/webhook"
 
-    # Generate greeting TwiML
+    # Get business voice settings (if configured)
+    voice_config = business.get("config", {}).get("voice", {})
+    voice_id = voice_config.get("elevenlabs_voice_id")
+
+    # Generate greeting TwiML with ElevenLabs if configured
     twiml = call_service.generate_twiml_greeting(
         business_name=business_name,
-        webhook_url=webhook_url
+        webhook_url=webhook_url,
+        voice_id=voice_id,
+        base_url=base_url  # Enable ElevenLabs
     )
 
     return Response(content=twiml, media_type="application/xml")
@@ -263,9 +276,12 @@ async def handle_gather(
             action = "transfer"
 
         elif any(word in speech_lower for word in ["leave message", "voicemail"]):
+            voice_cfg = business.get("config", {}).get("voice", {}) if business else {}
             twiml = call_service.generate_twiml_voicemail(
                 business_name,
-                f"{webhook_url}/recording"
+                f"{webhook_url}/recording",
+                base_url=base_url,
+                voice_id=voice_cfg.get("elevenlabs_voice_id")
             )
             return Response(content=twiml, media_type="application/xml")
 
@@ -283,6 +299,10 @@ async def handle_gather(
     if intent != CallIntent.UNKNOWN:
         await call_service.set_call_intent(call.call_id, intent)
 
+    # Get voice configuration for ElevenLabs
+    voice_config = business.get("config", {}).get("voice", {}) if business else {}
+    voice_id = voice_config.get("elevenlabs_voice_id")
+
     # Handle special actions
     if action == "transfer":
         await call_service.set_call_intent(call.call_id, CallIntent.SUPPORT, "Requested human transfer")
@@ -293,17 +313,28 @@ async def handle_gather(
 
         transfer_number = business.get("config", {}).get("main_phone") if business else None
         if transfer_number:
-            twiml = call_service.generate_twiml_transfer(transfer_number)
+            twiml = call_service.generate_twiml_transfer(
+                transfer_number,
+                base_url=base_url,
+                voice_id=voice_id
+            )
         else:
             twiml = call_service.generate_twiml_voicemail(
                 business_name,
-                f"{webhook_url}/recording"
+                f"{webhook_url}/recording",
+                base_url=base_url,
+                voice_id=voice_id
             )
         return Response(content=twiml, media_type="application/xml")
 
     elif action == "end":
         await call_service.update_call_status(call.call_id, CallStatus.COMPLETED)
-        twiml = call_service.generate_twiml_response(response_message, end_call=True)
+        twiml = call_service.generate_twiml_response(
+            response_message,
+            end_call=True,
+            base_url=base_url,
+            voice_id=voice_id
+        )
         return Response(content=twiml, media_type="application/xml")
 
     elif action == "book" and collected_data:
@@ -340,7 +371,9 @@ async def handle_gather(
 
     twiml = call_service.generate_twiml_response(
         response_message,
-        gather_url=f"{webhook_url}/gather"
+        gather_url=f"{webhook_url}/gather",
+        base_url=base_url,
+        voice_id=voice_id
     )
 
     return Response(content=twiml, media_type="application/xml")
@@ -823,3 +856,169 @@ async def test_text_to_speech(
             "success": False,
             "error": result.error
         }
+
+
+# ====================
+# ElevenLabs Audio Streaming Endpoints (For Twilio)
+# ====================
+
+@router.get(
+    "/audio/stream",
+    summary="Stream ElevenLabs audio for Twilio playback"
+)
+async def stream_elevenlabs_audio(
+    text: str = Query(..., description="Text to synthesize"),
+    voice_id: Optional[str] = Query(None, description="ElevenLabs voice ID"),
+    cache_key: Optional[str] = Query(None, description="Optional cache key")
+):
+    """
+    Stream ElevenLabs-generated audio for Twilio <Play> element.
+    This endpoint generates audio on-the-fly for low-latency playback.
+    """
+    global _audio_cache
+
+    voice_service = get_voice_service()
+
+    # Check cache first
+    if cache_key and cache_key in _audio_cache:
+        audio_data = _audio_cache[cache_key]
+        return Response(
+            content=audio_data,
+            media_type="audio/mpeg",
+            headers={
+                "Content-Type": "audio/mpeg",
+                "Cache-Control": "public, max-age=3600"
+            }
+        )
+
+    # Use ElevenLabs if configured
+    if voice_service.is_configured:
+        async def generate_audio():
+            async for chunk in voice_service.stream_speech(
+                text=text,
+                voice_id=voice_id,
+                model_id="eleven_turbo_v2_5"
+            ):
+                yield chunk
+
+        return StreamingResponse(
+            generate_audio(),
+            media_type="audio/mpeg",
+            headers={
+                "Content-Type": "audio/mpeg",
+                "Transfer-Encoding": "chunked"
+            }
+        )
+    else:
+        # Return error - caller should fall back to Twilio TTS
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "VOICE_NOT_CONFIGURED", "message": "ElevenLabs not configured"}
+        )
+
+
+@router.get(
+    "/audio/pregenerate",
+    summary="Pre-generate and cache audio for Twilio"
+)
+async def pregenerate_audio(
+    text: str = Query(..., max_length=1000),
+    voice_id: Optional[str] = Query(None),
+    cache_key: str = Query(..., description="Unique cache key")
+):
+    """
+    Pre-generate audio and cache it for fast retrieval.
+    Returns a URL that Twilio can use with <Play>.
+    """
+    global _audio_cache
+
+    voice_service = get_voice_service()
+
+    if not voice_service.is_configured:
+        return {
+            "success": False,
+            "error": "ElevenLabs not configured",
+            "fallback": "twilio_tts"
+        }
+
+    try:
+        audio_data = await voice_service.synthesize_and_cache(
+            text=text,
+            cache_key=cache_key,
+            voice_id=voice_id
+        )
+
+        if audio_data:
+            # Store in cache (limit to 100 items)
+            if len(_audio_cache) > 100:
+                # Remove oldest item
+                oldest_key = next(iter(_audio_cache))
+                del _audio_cache[oldest_key]
+
+            _audio_cache[cache_key] = audio_data
+
+            return {
+                "success": True,
+                "cache_key": cache_key,
+                "characters": len(text)
+            }
+        else:
+            return {"success": False, "error": "Audio generation failed"}
+
+    except Exception as e:
+        logger.error(f"Audio pre-generation error: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+
+def generate_elevenlabs_twiml(
+    text: str,
+    base_url: str,
+    voice_id: Optional[str] = None,
+    gather_url: Optional[str] = None,
+    end_call: bool = False
+) -> str:
+    """
+    Generate TwiML that uses ElevenLabs audio via <Play>.
+
+    Args:
+        text: Text to speak
+        base_url: Base URL for audio endpoint
+        voice_id: ElevenLabs voice ID
+        gather_url: URL for speech gathering (if interactive)
+        end_call: Whether to end call after message
+
+    Returns:
+        TwiML XML string
+    """
+    voice_service = get_voice_service()
+
+    # URL-encode the text for query parameter
+    encoded_text = quote(text)
+    audio_url = f"{base_url}/api/v1/voice/audio/stream?text={encoded_text}"
+    if voice_id:
+        audio_url += f"&voice_id={voice_id}"
+
+    twiml = '<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n'
+
+    if voice_service.is_configured:
+        # Use ElevenLabs via <Play>
+        if gather_url and not end_call:
+            twiml += f'    <Gather input="speech" action="{gather_url}" method="POST" speechTimeout="auto">\n'
+            twiml += f'        <Play>{audio_url}</Play>\n'
+            twiml += '    </Gather>\n'
+        else:
+            twiml += f'    <Play>{audio_url}</Play>\n'
+    else:
+        # Fall back to Twilio TTS
+        if gather_url and not end_call:
+            twiml += f'    <Gather input="speech" action="{gather_url}" method="POST" speechTimeout="auto">\n'
+            twiml += f'        <Say voice="Polly.Joanna">{text}</Say>\n'
+            twiml += '    </Gather>\n'
+        else:
+            twiml += f'    <Say voice="Polly.Joanna">{text}</Say>\n'
+
+    if end_call:
+        twiml += '    <Hangup/>\n'
+
+    twiml += '</Response>'
+    return twiml

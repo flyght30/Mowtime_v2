@@ -32,9 +32,95 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return R * c
 
 
-def estimate_drive_time(distance_miles: float) -> int:
-    """Estimate drive time in minutes (assumes ~30 mph average)"""
-    return int(distance_miles * 2)  # 2 minutes per mile
+def estimate_drive_time(distance_miles: float, departure_time: str = None) -> int:
+    """
+    Estimate drive time in minutes with traffic conditions factor.
+
+    Args:
+        distance_miles: Distance to travel
+        departure_time: Optional departure time (HH:MM format) for traffic estimation
+
+    Returns:
+        Estimated drive time in minutes with traffic multiplier
+    """
+    base_minutes = int(distance_miles * 2)  # 2 minutes per mile (~30 mph average)
+
+    # Apply traffic multiplier based on time of day
+    traffic_multiplier = get_traffic_multiplier(departure_time)
+
+    return int(base_minutes * traffic_multiplier)
+
+
+def get_traffic_multiplier(time_str: str = None) -> float:
+    """
+    Get traffic multiplier based on time of day.
+
+    Args:
+        time_str: Time in HH:MM format (24-hour)
+
+    Returns:
+        Multiplier for drive time (1.0 = normal, 1.5 = heavy traffic)
+    """
+    from datetime import datetime
+
+    if not time_str:
+        time_str = datetime.now().strftime("%H:%M")
+
+    try:
+        hour = int(time_str.split(":")[0])
+    except (ValueError, IndexError):
+        return 1.0
+
+    # Traffic patterns (typical US suburban/urban)
+    # Morning rush: 7-9 AM (heavy)
+    # Midday: 9 AM - 4 PM (light)
+    # Evening rush: 4-7 PM (heavy)
+    # Night: 7 PM - 7 AM (light)
+
+    if 7 <= hour < 9:
+        return 1.4  # Morning rush hour
+    elif 9 <= hour < 12:
+        return 1.1  # Light morning traffic
+    elif 12 <= hour < 13:
+        return 1.2  # Lunch hour
+    elif 13 <= hour < 16:
+        return 1.0  # Light afternoon
+    elif 16 <= hour < 19:
+        return 1.5  # Evening rush hour (worst)
+    else:
+        return 1.0  # Night/early morning
+
+
+def get_traffic_conditions(time_str: str = None) -> dict:
+    """
+    Get detailed traffic conditions for a given time.
+
+    Returns:
+        Dict with traffic level, description, and multiplier
+    """
+    multiplier = get_traffic_multiplier(time_str)
+
+    if multiplier >= 1.4:
+        return {
+            "level": "heavy",
+            "description": "Rush hour - heavy traffic expected",
+            "multiplier": multiplier,
+            "color": "#EF4444"  # Red
+        }
+    elif multiplier >= 1.2:
+        return {
+            "level": "moderate",
+            "description": "Moderate traffic",
+            "multiplier": multiplier,
+            "color": "#F59E0B"  # Orange/Yellow
+        }
+    else:
+        return {
+            "level": "light",
+            "description": "Light traffic",
+            "multiplier": multiplier,
+            "color": "#10B981"  # Green
+        }
 
 
 @router.get(
@@ -260,10 +346,24 @@ async def get_customer_tech_history(db, client_id: str, business_id: str) -> dic
 async def suggest_technician(
     job_id: str,
     target_date: Optional[str] = Query(None, description="Target date YYYY-MM-DD"),
+    target_time: Optional[str] = Query(None, description="Target start time HH:MM"),
+    save_suggestion: bool = Query(False, description="Save suggestion to database"),
     ctx: BusinessContext = Depends(get_business_context),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
-    """Get ranked technician suggestions for a job with AI-powered scoring"""
+    """
+    Get ranked technician suggestions for a job with AI-powered scoring.
+
+    Factors considered:
+    - Skill certification (20%)
+    - Distance/ETA with traffic conditions (25%)
+    - Availability (15%)
+    - Current status (10%)
+    - Performance history (15%)
+    - Customer preference (15%)
+    """
+    from app.models.common import generate_id
+
     # Get job details
     job = await db.hvac_quotes.find_one(ctx.filter_query({
         "quote_id": job_id,
@@ -280,6 +380,13 @@ async def suggest_technician(
     job_type = job.get("job_type", "service")
     estimated_hours = job.get("estimated_hours", 2)
     client_id = job.get("client", {}).get("client_id")
+
+    # Calculate date and time for checks
+    check_date = target_date or date.today().isoformat()
+    check_time = target_time or datetime.now().strftime("%H:%M")
+
+    # Get traffic conditions for the target time
+    traffic = get_traffic_conditions(check_time)
 
     # Skill requirements based on job type
     required_skill = {
@@ -299,9 +406,6 @@ async def suggest_technician(
         "status": {"$ne": TechStatus.OFF_DUTY.value}
     })).to_list(length=50)
 
-    # Calculate date for availability check
-    check_date = target_date or date.today().isoformat()
-
     suggestions = []
     for tech in techs:
         score = 50  # Base score
@@ -316,10 +420,11 @@ async def suggest_technician(
             score -= 30
             reasons.append(f"Not {job_type} certified")
 
-        # Check distance (25% weight)
+        # Check distance with traffic (25% weight)
         tech_location = tech.get("location")
         distance_miles = None
         eta_minutes = None
+        eta_no_traffic = None
 
         if tech_location and job_location:
             tech_coords = tech_location.get("coordinates", [])
@@ -328,7 +433,10 @@ async def suggest_technician(
                     tech_coords[1], tech_coords[0],  # lat, lng
                     job_location.get("lat", 0), job_location.get("lng", 0)
                 )
-                eta_minutes = estimate_drive_time(distance_miles)
+                # ETA with traffic conditions
+                eta_minutes = estimate_drive_time(distance_miles, check_time)
+                # ETA without traffic for comparison
+                eta_no_traffic = int(distance_miles * 2)
 
                 if distance_miles < 5:
                     score += 25
@@ -420,6 +528,7 @@ async def suggest_technician(
             "score": max(0, min(100, score)),  # Clamp 0-100
             "reasons": reasons,
             "eta_minutes": eta_minutes,
+            "eta_no_traffic": eta_no_traffic,
             "distance_miles": round(distance_miles, 1) if distance_miles else None,
             "status": tech["status"],
             "available_hours": available_hours,
@@ -434,14 +543,45 @@ async def suggest_technician(
     # Sort by score descending
     suggestions.sort(key=lambda x: x["score"], reverse=True)
 
-    return {
-        "success": True,
-        "data": {
+    # Build response data
+    response_data = {
+        "job_id": job_id,
+        "target_date": check_date,
+        "target_time": check_time,
+        "traffic_conditions": traffic,
+        "customer_preferred_tech": preferred_tech_id,
+        "suggestions": suggestions
+    }
+
+    # Save suggestion to database if requested
+    suggestion_id = None
+    if save_suggestion and suggestions:
+        suggestion_id = generate_id("sug")
+        suggestion_doc = {
+            "suggestion_id": suggestion_id,
+            "business_id": ctx.business_id,
             "job_id": job_id,
             "target_date": check_date,
+            "target_time": check_time,
+            "traffic_conditions": traffic,
             "customer_preferred_tech": preferred_tech_id,
-            "suggestions": suggestions
+            "top_recommendation": {
+                "tech_id": suggestions[0]["tech_id"],
+                "tech_name": suggestions[0]["tech_name"],
+                "score": suggestions[0]["score"],
+                "reasons": suggestions[0]["reasons"]
+            },
+            "all_suggestions": suggestions,
+            "status": "pending",  # pending, accepted, rejected, expired
+            "created_at": utc_now(),
+            "updated_at": utc_now()
         }
+        await db.dispatch_suggestions.insert_one(suggestion_doc)
+        response_data["suggestion_id"] = suggestion_id
+
+    return {
+        "success": True,
+        "data": response_data
     }
 
 
@@ -623,4 +763,237 @@ async def get_dispatch_stats(
                 "total_today": jobs_scheduled + jobs_in_progress + jobs_completed
             }
         }
+    }
+
+
+@router.get(
+    "/suggestions",
+    summary="List dispatch suggestions"
+)
+async def list_suggestions(
+    status_filter: Optional[str] = Query(None, alias="status"),
+    job_id: Optional[str] = None,
+    limit: int = Query(20, ge=1, le=100),
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """List AI dispatch suggestions with optional filters"""
+    query = ctx.filter_query({"deleted_at": None})
+
+    if status_filter:
+        query["status"] = status_filter
+
+    if job_id:
+        query["job_id"] = job_id
+
+    suggestions = await db.dispatch_suggestions.find(query).sort(
+        "created_at", -1
+    ).to_list(length=limit)
+
+    return {
+        "success": True,
+        "data": {
+            "suggestions": suggestions,
+            "count": len(suggestions)
+        }
+    }
+
+
+@router.get(
+    "/suggestions/{suggestion_id}",
+    summary="Get dispatch suggestion by ID"
+)
+async def get_suggestion(
+    suggestion_id: str,
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get a specific dispatch suggestion"""
+    suggestion = await db.dispatch_suggestions.find_one(ctx.filter_query({
+        "suggestion_id": suggestion_id
+    }))
+
+    if not suggestion:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "SUGGESTION_NOT_FOUND", "message": "Suggestion not found"}
+        )
+
+    return {
+        "success": True,
+        "data": suggestion
+    }
+
+
+@router.post(
+    "/suggestions/{suggestion_id}/action",
+    summary="Accept or reject a dispatch suggestion"
+)
+async def action_suggestion(
+    suggestion_id: str,
+    action: str = Query(..., pattern="^(accept|reject)$"),
+    selected_tech_id: Optional[str] = None,
+    reason: Optional[str] = None,
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Accept or reject a dispatch suggestion.
+
+    - accept: Use the top recommended tech (or specify selected_tech_id)
+    - reject: Mark as rejected, optionally provide reason and selected_tech_id
+    """
+    suggestion = await db.dispatch_suggestions.find_one(ctx.filter_query({
+        "suggestion_id": suggestion_id
+    }))
+
+    if not suggestion:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "SUGGESTION_NOT_FOUND", "message": "Suggestion not found"}
+        )
+
+    if suggestion.get("status") != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "ALREADY_ACTIONED", "message": "Suggestion already actioned"}
+        )
+
+    # Calculate response time
+    created_at = suggestion.get("created_at")
+    response_time = None
+    if created_at:
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        response_time = int((datetime.now() - created_at.replace(tzinfo=None)).total_seconds())
+
+    # Determine final tech selection
+    top_tech_id = suggestion.get("top_recommendation", {}).get("tech_id")
+    final_tech_id = selected_tech_id or top_tech_id
+    was_top_pick = final_tech_id == top_tech_id
+
+    # Update suggestion
+    update_data = {
+        "status": "accepted" if action == "accept" else "rejected",
+        "selected_tech_id": final_tech_id,
+        "selection_reason": reason,
+        "response_time_seconds": response_time,
+        "was_top_pick_selected": was_top_pick if action == "accept" else False,
+        "actioned_at": utc_now(),
+        "updated_at": utc_now()
+    }
+
+    await db.dispatch_suggestions.update_one(
+        {"suggestion_id": suggestion_id},
+        {"$set": update_data}
+    )
+
+    return {
+        "success": True,
+        "data": {
+            "suggestion_id": suggestion_id,
+            "action": action,
+            "selected_tech_id": final_tech_id,
+            "was_top_pick_selected": was_top_pick,
+            "response_time_seconds": response_time
+        }
+    }
+
+
+@router.get(
+    "/suggestions/stats",
+    summary="Get suggestion accuracy statistics"
+)
+async def get_suggestion_stats(
+    days: int = Query(30, ge=1, le=365),
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get statistics on AI suggestion accuracy"""
+    from datetime import timedelta
+
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+
+    # Aggregate stats
+    pipeline = [
+        {"$match": ctx.filter_query({
+            "created_at": {"$gte": cutoff}
+        })},
+        {"$group": {
+            "_id": "$status",
+            "count": {"$sum": 1},
+            "top_pick_selected": {
+                "$sum": {"$cond": [{"$eq": ["$was_top_pick_selected", True]}, 1, 0]}
+            },
+            "total_response_time": {
+                "$sum": {"$ifNull": ["$response_time_seconds", 0]}
+            },
+            "actioned_count": {
+                "$sum": {"$cond": [{"$ne": ["$response_time_seconds", None]}, 1, 0]}
+            }
+        }}
+    ]
+
+    results = await db.dispatch_suggestions.aggregate(pipeline).to_list(length=10)
+
+    stats = {
+        "total_suggestions": 0,
+        "accepted": 0,
+        "rejected": 0,
+        "pending": 0,
+        "expired": 0,
+        "top_pick_acceptance_rate": 0,
+        "avg_response_time_seconds": None
+    }
+
+    total_response_time = 0
+    actioned_count = 0
+    accepted_top_picks = 0
+
+    for r in results:
+        count = r["count"]
+        status_key = r["_id"]
+        stats["total_suggestions"] += count
+
+        if status_key in stats:
+            stats[status_key] = count
+
+        if status_key == "accepted":
+            accepted_top_picks = r.get("top_pick_selected", 0)
+
+        total_response_time += r.get("total_response_time", 0)
+        actioned_count += r.get("actioned_count", 0)
+
+    # Calculate rates
+    if stats["accepted"] > 0:
+        stats["top_pick_acceptance_rate"] = round(
+            accepted_top_picks / stats["accepted"], 2
+        )
+
+    if actioned_count > 0:
+        stats["avg_response_time_seconds"] = round(
+            total_response_time / actioned_count, 1
+        )
+
+    stats["period_days"] = days
+
+    return {
+        "success": True,
+        "data": stats
+    }
+
+
+@router.get(
+    "/traffic",
+    summary="Get current traffic conditions"
+)
+async def get_traffic(
+    time_str: Optional[str] = Query(None, description="Time HH:MM (defaults to now)")
+):
+    """Get traffic conditions for a given time"""
+    traffic = get_traffic_conditions(time_str)
+
+    return {
+        "success": True,
+        "data": traffic
     }

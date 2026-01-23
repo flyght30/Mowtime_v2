@@ -37,9 +37,43 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 async def process_voice_note(
     voice_note_id: str,
     business_id: str,
+    tech_id: str,
     db: AsyncIOMotorDatabase
 ):
-    """Background task to transcribe and summarize a voice note"""
+    """Background task to transcribe and summarize a voice note with WebSocket updates"""
+    from app.services.websocket_manager import get_websocket_manager
+
+    ws_manager = get_websocket_manager()
+
+    async def update_status_and_notify(
+        status: VoiceNoteStatus,
+        extra_fields: dict = None,
+        summary: str = None,
+        error: str = None
+    ):
+        """Update DB and send WebSocket notification"""
+        update_data = {
+            "status": status.value,
+            "updated_at": datetime.utcnow()
+        }
+        if extra_fields:
+            update_data.update(extra_fields)
+
+        await db.voice_notes.update_one(
+            {"voice_note_id": voice_note_id},
+            {"$set": update_data}
+        )
+
+        # Send WebSocket update
+        await ws_manager.broadcast_voice_note_status(
+            business_id=business_id,
+            voice_note_id=voice_note_id,
+            status=status.value,
+            summary=summary,
+            tech_id=tech_id,
+            error=error
+        )
+
     try:
         # Get the voice note
         note = await db.voice_notes.find_one({
@@ -51,10 +85,7 @@ async def process_voice_note(
             return
 
         # Update status to transcribing
-        await db.voice_notes.update_one(
-            {"voice_note_id": voice_note_id},
-            {"$set": {"status": VoiceNoteStatus.TRANSCRIBING.value, "updated_at": datetime.utcnow()}}
-        )
+        await update_status_and_notify(VoiceNoteStatus.TRANSCRIBING)
 
         # Transcribe
         transcription_service = get_transcription_service()
@@ -67,26 +98,21 @@ async def process_voice_note(
             result = await transcription_service.transcribe_file(audio_path)
 
         if not result.success:
-            await db.voice_notes.update_one(
-                {"voice_note_id": voice_note_id},
-                {"$set": {
-                    "status": VoiceNoteStatus.FAILED.value,
-                    "error_message": result.error,
-                    "updated_at": datetime.utcnow()
-                }}
+            await update_status_and_notify(
+                VoiceNoteStatus.FAILED,
+                extra_fields={"error_message": result.error},
+                error=result.error
             )
             return
 
-        # Update with transcription
-        await db.voice_notes.update_one(
-            {"voice_note_id": voice_note_id},
-            {"$set": {
+        # Update with transcription and notify summarizing
+        await update_status_and_notify(
+            VoiceNoteStatus.SUMMARIZING,
+            extra_fields={
                 "transcription": result.text,
                 "transcription_confidence": result.confidence,
-                "transcribed_at": datetime.utcnow(),
-                "status": VoiceNoteStatus.SUMMARIZING.value,
-                "updated_at": datetime.utcnow()
-            }}
+                "transcribed_at": datetime.utcnow()
+            }
         )
 
         # Summarize with Claude
@@ -94,39 +120,32 @@ async def process_voice_note(
         summary_result = await ai_service.summarize_voice_note(result.text)
 
         if not summary_result.success:
-            await db.voice_notes.update_one(
-                {"voice_note_id": voice_note_id},
-                {"$set": {
-                    "status": VoiceNoteStatus.FAILED.value,
-                    "error_message": f"Summarization failed: {summary_result.error}",
-                    "updated_at": datetime.utcnow()
-                }}
+            await update_status_and_notify(
+                VoiceNoteStatus.FAILED,
+                extra_fields={"error_message": f"Summarization failed: {summary_result.error}"},
+                error=summary_result.error
             )
             return
 
         # Complete processing
-        await db.voice_notes.update_one(
-            {"voice_note_id": voice_note_id},
-            {"$set": {
+        await update_status_and_notify(
+            VoiceNoteStatus.COMPLETE,
+            extra_fields={
                 "summary": summary_result.content,
                 "summarized_at": datetime.utcnow(),
-                "claude_tokens_used": summary_result.tokens_used,
-                "status": VoiceNoteStatus.COMPLETE.value,
-                "updated_at": datetime.utcnow()
-            }}
+                "claude_tokens_used": summary_result.tokens_used
+            },
+            summary=summary_result.content
         )
 
         logger.info(f"Voice note processed successfully: {voice_note_id}")
 
     except Exception as e:
         logger.error(f"Error processing voice note {voice_note_id}: {str(e)}")
-        await db.voice_notes.update_one(
-            {"voice_note_id": voice_note_id},
-            {"$set": {
-                "status": VoiceNoteStatus.FAILED.value,
-                "error_message": str(e),
-                "updated_at": datetime.utcnow()
-            }}
+        await update_status_and_notify(
+            VoiceNoteStatus.FAILED,
+            extra_fields={"error_message": str(e)},
+            error=str(e)
         )
 
 
@@ -197,11 +216,12 @@ async def upload_voice_note(
 
     await db.voice_notes.insert_one(voice_note.model_dump())
 
-    # Start background processing
+    # Start background processing with WebSocket updates
     background_tasks.add_task(
         process_voice_note,
         voice_note.voice_note_id,
         ctx.business_id,
+        current_user.user_id,  # tech_id for WebSocket notifications
         db
     )
 
@@ -314,6 +334,7 @@ async def reprocess_voice_note(
         process_voice_note,
         voice_note_id,
         ctx.business_id,
+        note.get("tech_id", current_user.user_id),  # tech_id for WebSocket notifications
         db
     )
 

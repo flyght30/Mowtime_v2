@@ -270,6 +270,98 @@ class VoiceService:
             "Thank you for calling. Have a great day!"
         )
 
+    async def stream_speech(
+        self,
+        text: str,
+        voice_id: Optional[str] = None,
+        model_id: str = "eleven_turbo_v2_5",
+        output_format: str = "mp3_44100_128"
+    ):
+        """
+        Stream speech synthesis for low-latency playback.
+
+        Args:
+            text: Text to synthesize
+            voice_id: ElevenLabs voice ID
+            model_id: Model to use (eleven_turbo_v2_5 for lowest latency)
+            output_format: Audio output format
+
+        Yields:
+            Audio chunks as bytes
+        """
+        if not self.is_configured:
+            logger.warning("ElevenLabs not configured for streaming")
+            return
+
+        if not voice_id:
+            voice_id = self.DEFAULT_VOICES["professional_female"]
+
+        url = f"{self.BASE_URL}/text-to-speech/{voice_id}/stream"
+
+        payload = {
+            "text": text,
+            "model_id": model_id,
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.75,
+                "style": 0.0,
+                "use_speaker_boost": True
+            },
+            "output_format": output_format
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                async with client.stream(
+                    "POST",
+                    url,
+                    json=payload,
+                    headers={
+                        "xi-api-key": self.api_key,
+                        "Content-Type": "application/json",
+                        "Accept": "audio/mpeg"
+                    },
+                    timeout=60.0
+                ) as response:
+                    if response.status_code == 200:
+                        async for chunk in response.aiter_bytes(chunk_size=4096):
+                            yield chunk
+                    else:
+                        logger.error(f"ElevenLabs stream error: HTTP {response.status_code}")
+                        return
+
+        except Exception as e:
+            logger.error(f"Voice stream error: {str(e)}")
+            return
+
+    async def synthesize_and_cache(
+        self,
+        text: str,
+        cache_key: str,
+        voice_id: Optional[str] = None
+    ) -> Optional[bytes]:
+        """
+        Synthesize speech and cache for reuse.
+
+        Args:
+            text: Text to synthesize
+            cache_key: Unique cache key
+            voice_id: ElevenLabs voice ID
+
+        Returns:
+            Audio data as bytes
+        """
+        result = await self.synthesize_speech(
+            text=text,
+            voice_id=voice_id,
+            model_id="eleven_turbo_v2_5",
+            output_format="mp3_44100_128"
+        )
+
+        if result.success:
+            return result.audio_data
+        return None
+
 
 # Singleton instance
 _voice_service: Optional[VoiceService] = None
