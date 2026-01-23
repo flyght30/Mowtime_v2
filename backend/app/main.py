@@ -118,6 +118,7 @@ from app.routers.notifications import router as notifications_router
 from app.routers.voice import router as voice_router
 from app.routers.payments import router as payments_router
 from app.routers.technicians import router as technicians_router
+from app.routers.tech_mobile import router as tech_mobile_router
 from app.routers.dispatch_schedule import router as schedule_router
 from app.routers.dispatch import router as dispatch_router
 from app.routers.sms import router as sms_router
@@ -137,6 +138,7 @@ app.include_router(notifications_router, prefix=f"{settings.API_V1_PREFIX}/notif
 app.include_router(voice_router, prefix=f"{settings.API_V1_PREFIX}/voice", tags=["Voice"])
 app.include_router(payments_router, prefix=f"{settings.API_V1_PREFIX}/payments", tags=["Payments"])
 app.include_router(technicians_router, prefix=f"{settings.API_V1_PREFIX}/technicians", tags=["Technicians"])
+app.include_router(tech_mobile_router, prefix=f"{settings.API_V1_PREFIX}/technicians", tags=["Tech Mobile"])
 app.include_router(schedule_router, prefix=f"{settings.API_V1_PREFIX}/schedule", tags=["Schedule"])
 app.include_router(dispatch_router, prefix=f"{settings.API_V1_PREFIX}/dispatch", tags=["Dispatch"])
 app.include_router(sms_router, prefix=f"{settings.API_V1_PREFIX}/sms", tags=["SMS"])

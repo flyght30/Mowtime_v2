@@ -16,7 +16,7 @@ import { Colors } from '../constants/theme';
 
 // Auth routing guard
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -24,15 +24,29 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inTechGroup = segments[0] === '(tech)';
+    const inTabsGroup = segments[0] === '(tabs)';
 
     if (!isAuthenticated && !inAuthGroup) {
       // Redirect to login if not authenticated
       router.replace('/(auth)/login');
     } else if (isAuthenticated && inAuthGroup) {
-      // Redirect to main app if authenticated
+      // Redirect based on user role
+      if (user?.role === 'staff') {
+        // Technicians go to tech app
+        router.replace('/(tech)');
+      } else {
+        // Office users (owner, admin, customer) go to main app
+        router.replace('/(tabs)');
+      }
+    } else if (isAuthenticated && user?.role === 'staff' && inTabsGroup) {
+      // Technicians should not access the office app
+      router.replace('/(tech)');
+    } else if (isAuthenticated && user?.role !== 'staff' && inTechGroup) {
+      // Non-technicians should not access the tech app
       router.replace('/(tabs)');
     }
-  }, [isAuthenticated, isLoading, segments]);
+  }, [isAuthenticated, isLoading, segments, user]);
 
   if (isLoading) {
     return (
@@ -58,6 +72,7 @@ export default function RootLayout() {
                 <Stack screenOptions={{ headerShown: false }}>
                   <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="(tech)" options={{ headerShown: false }} />
                   <Stack.Screen name="hvac" options={{ headerShown: false }} />
                 </Stack>
               </AuthGuard>
