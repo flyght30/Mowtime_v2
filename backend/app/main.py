@@ -117,6 +117,9 @@ from app.routers.scheduling import router as scheduling_router
 from app.routers.notifications import router as notifications_router
 from app.routers.voice import router as voice_router
 from app.routers.payments import router as payments_router
+from app.routers.technicians import router as technicians_router
+from app.routers.dispatch_schedule import router as schedule_router
+from app.routers.dispatch import router as dispatch_router
 
 # API v1 routers
 app.include_router(auth_router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
@@ -131,6 +134,9 @@ app.include_router(scheduling_router, prefix=f"{settings.API_V1_PREFIX}/scheduli
 app.include_router(notifications_router, prefix=f"{settings.API_V1_PREFIX}/notifications", tags=["Notifications"])
 app.include_router(voice_router, prefix=f"{settings.API_V1_PREFIX}/voice", tags=["Voice"])
 app.include_router(payments_router, prefix=f"{settings.API_V1_PREFIX}/payments", tags=["Payments"])
+app.include_router(technicians_router, prefix=f"{settings.API_V1_PREFIX}/technicians", tags=["Technicians"])
+app.include_router(schedule_router, prefix=f"{settings.API_V1_PREFIX}/schedule", tags=["Schedule"])
+app.include_router(dispatch_router, prefix=f"{settings.API_V1_PREFIX}/dispatch", tags=["Dispatch"])
 
 
 if __name__ == "__main__":
