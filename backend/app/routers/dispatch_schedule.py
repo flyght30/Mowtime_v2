@@ -308,6 +308,25 @@ async def assign_job(
             {"$set": {"next_job_id": data.job_id, "updated_at": utc_now()}}
         )
 
+    # Send "job scheduled" SMS to customer
+    try:
+        from app.services.sms_service import get_sms_service
+        from app.models.sms import SMSTriggerType
+
+        customer_id = job.get("client", {}).get("client_id")
+        if customer_id:
+            sms_service = get_sms_service(db)
+            await sms_service.send_triggered_sms(
+                business_id=ctx.business_id,
+                trigger_type=SMSTriggerType.SCHEDULED,
+                customer_id=customer_id,
+                job_id=data.job_id,
+                tech_id=data.tech_id
+            )
+    except Exception as e:
+        import logging
+        logging.warning(f"Failed to send scheduled SMS: {e}")
+
     response = AssignJobResponse(
         schedule_entry=ScheduleEntryResponse(**entry.model_dump()),
         conflicts=conflicts

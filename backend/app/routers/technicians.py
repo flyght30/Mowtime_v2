@@ -248,7 +248,10 @@ async def update_tech_status(
     ctx: BusinessContext = Depends(get_business_context),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
-    """Update technician dispatch status"""
+    """Update technician dispatch status with automatic SMS triggers"""
+    from app.services.sms_service import get_sms_service
+    from app.models.sms import SMSTriggerType
+
     update_data = {
         "status": new_status.value,
         "updated_at": utc_now()
@@ -276,6 +279,48 @@ async def update_tech_status(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "TECH_NOT_FOUND", "message": "Technician not found"}
         )
+
+    # Trigger SMS notifications based on status change
+    current_job_id = job_id or result.get("current_job_id")
+    if current_job_id:
+        try:
+            # Get job to find customer
+            job = await db.hvac_quotes.find_one({"quote_id": current_job_id})
+            if job and job.get("client", {}).get("client_id"):
+                customer_id = job["client"]["client_id"]
+                sms_service = get_sms_service(db)
+
+                if new_status == TechStatus.ENROUTE:
+                    # Send "tech enroute" SMS
+                    await sms_service.send_triggered_sms(
+                        business_id=ctx.business_id,
+                        trigger_type=SMSTriggerType.ENROUTE,
+                        customer_id=customer_id,
+                        job_id=current_job_id,
+                        tech_id=tech_id
+                    )
+                elif new_status == TechStatus.ON_SITE:
+                    # Send "tech arrived" SMS
+                    await sms_service.send_triggered_sms(
+                        business_id=ctx.business_id,
+                        trigger_type=SMSTriggerType.ARRIVED,
+                        customer_id=customer_id,
+                        job_id=current_job_id,
+                        tech_id=tech_id
+                    )
+                elif new_status == TechStatus.COMPLETE:
+                    # Send "job complete" SMS
+                    await sms_service.send_triggered_sms(
+                        business_id=ctx.business_id,
+                        trigger_type=SMSTriggerType.COMPLETE,
+                        customer_id=customer_id,
+                        job_id=current_job_id,
+                        tech_id=tech_id
+                    )
+        except Exception as e:
+            # Log but don't fail the status update if SMS fails
+            import logging
+            logging.warning(f"Failed to send SMS for tech status change: {e}")
 
     return SingleResponse(data=TechnicianResponse(**result))
 
@@ -337,11 +382,12 @@ async def update_tech_location(
         "updated_at": utc_now()
     }
 
-    # Geofence auto-arrival detection
+    # Geofence auto-arrival detection and 15-min ETA SMS
     geofence_triggered = False
+    fifteen_min_sms_sent = False
     current_status = tech.get("status")
 
-    # Only check geofence if tech is enroute
+    # Only check if tech is enroute
     if current_status == TechStatus.ENROUTE.value and tech.get("current_job_id"):
         # Get the current job location
         job = await db.hvac_quotes.find_one({
@@ -357,7 +403,7 @@ async def update_tech_location(
             # Calculate distance to job
             distance = haversine_distance(lat, lng, job_lat, job_lng)
 
-            # Check if within geofence
+            # Check if within geofence (auto-arrival)
             if distance <= GEOFENCE_RADIUS_MILES:
                 geofence_triggered = True
                 update_data["status"] = TechStatus.ON_SITE.value
@@ -383,6 +429,59 @@ async def update_tech_location(
                     {"$set": {"status": "in_progress", "updated_at": utc_now()}}
                 )
 
+                # Send "arrived" SMS
+                try:
+                    from app.services.sms_service import get_sms_service
+                    from app.models.sms import SMSTriggerType
+
+                    if job.get("client", {}).get("client_id"):
+                        sms_service = get_sms_service(db)
+                        await sms_service.send_triggered_sms(
+                            business_id=ctx.business_id,
+                            trigger_type=SMSTriggerType.ARRIVED,
+                            customer_id=job["client"]["client_id"],
+                            job_id=tech["current_job_id"],
+                            tech_id=tech_id
+                        )
+                except Exception as e:
+                    import logging
+                    logging.warning(f"Failed to send arrived SMS: {e}")
+
+            else:
+                # Check for 15-minute ETA (distance / 30mph * 60 = minutes)
+                eta_minutes = int(distance * 2)  # 2 min per mile at 30mph
+
+                if 10 <= eta_minutes <= 20:  # Within 15-min window
+                    # Check if we already sent 15-min SMS for this job
+                    from app.models.sms import SMSTriggerType, SMSDirection
+
+                    existing_15min = await db.sms_messages.find_one({
+                        "business_id": ctx.business_id,
+                        "job_id": tech["current_job_id"],
+                        "trigger_type": SMSTriggerType.FIFTEEN_MIN.value,
+                        "direction": SMSDirection.OUTBOUND.value
+                    })
+
+                    if not existing_15min:
+                        # Send 15-min ETA SMS
+                        try:
+                            from app.services.sms_service import get_sms_service
+
+                            if job.get("client", {}).get("client_id"):
+                                sms_service = get_sms_service(db)
+                                await sms_service.send_triggered_sms(
+                                    business_id=ctx.business_id,
+                                    trigger_type=SMSTriggerType.FIFTEEN_MIN,
+                                    customer_id=job["client"]["client_id"],
+                                    job_id=tech["current_job_id"],
+                                    tech_id=tech_id,
+                                    eta_minutes=eta_minutes
+                                )
+                                fifteen_min_sms_sent = True
+                        except Exception as e:
+                            import logging
+                            logging.warning(f"Failed to send 15-min SMS: {e}")
+
     # Update tech location (and status if geofence triggered)
     await db.technicians.update_one(
         {"tech_id": tech_id},
@@ -396,13 +495,16 @@ async def update_tech_location(
         "location": {"type": "Point", "coordinates": [lng, lat]},
         "accuracy": accuracy,
         "timestamp": ts,
-        "geofence_triggered": geofence_triggered
+        "geofence_triggered": geofence_triggered,
+        "fifteen_min_sms_sent": fifteen_min_sms_sent
     }
     await db.tech_locations.insert_one(history_entry)
 
     message = "Location updated"
     if geofence_triggered:
         message = "Location updated - auto-arrived at job site"
+    elif fifteen_min_sms_sent:
+        message = "Location updated - 15 min ETA SMS sent"
 
     return MessageResponse(message=message)
 

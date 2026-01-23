@@ -110,6 +110,8 @@ Completed: 2026-01-23
 - `frontend/app/sms/conversation/[id].tsx`
 - `frontend/app/sms/settings.tsx`
 - `frontend/app/sms/templates.tsx`
+- `frontend/components/sms/RecentMessages.tsx` - Dashboard widget
+- `frontend/components/sms/index.ts`
 
 ---
 
@@ -128,10 +130,64 @@ Completed: 2026-01-23
 
 ## Integration Points
 
-1. **Dispatch Integration**: When tech status changes (enroute, arrived, complete), SMS can be triggered automatically
-2. **Scheduling Integration**: Job scheduled/reminder triggers
-3. **Webhook Processing**: Status updates from Twilio (delivered, failed)
-4. **Opt-out Handling**: STOP/START keyword responses
+1. **Dispatch Integration**: When tech status changes (enroute, arrived, complete), SMS is automatically triggered
+2. **Scheduling Integration**: When job is assigned, "scheduled" SMS is automatically sent
+3. **Location/Geofence Integration**: 15-min ETA SMS and auto-arrival SMS triggered by location updates
+4. **Webhook Processing**: Status updates from Twilio (delivered, failed)
+5. **Opt-out Handling**: STOP/START keyword responses
+
+---
+
+## Automatic SMS Triggers (Hooked)
+
+| Trigger | When | Location |
+|---------|------|----------|
+| SCHEDULED | Job assigned to tech | `dispatch_schedule.py:assign_job()` |
+| ENROUTE | Tech status → enroute | `technicians.py:update_tech_status()` |
+| 15_MIN | Tech within 15-min ETA | `technicians.py:update_tech_location()` |
+| ARRIVED | Tech enters geofence / status → on_site | `technicians.py:update_tech_location()` |
+| COMPLETE | Tech status → complete | `technicians.py:update_tech_status()` |
+| REMINDER | Day-before at 6 PM | **Requires scheduler (see below)** |
+
+---
+
+## Reminder Scheduler (Production Setup)
+
+The day-before reminder requires a background task scheduler. Options:
+
+### Option 1: APScheduler (Simple)
+```python
+# backend/app/tasks/scheduler.py
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+
+scheduler = AsyncIOScheduler()
+
+@scheduler.scheduled_job(CronTrigger(hour=18, minute=0))  # 6 PM daily
+async def send_reminder_sms():
+    # Find jobs scheduled for tomorrow
+    # Send reminder SMS for each
+    pass
+
+# Start in main.py: scheduler.start()
+```
+
+### Option 2: Celery Beat (Production)
+```python
+# For larger deployments with Redis/RabbitMQ
+CELERY_BEAT_SCHEDULE = {
+    'send-reminders': {
+        'task': 'tasks.send_reminder_sms',
+        'schedule': crontab(hour=18, minute=0),
+    },
+}
+```
+
+### Option 3: External Cron
+```bash
+# System cron calling API endpoint
+0 18 * * * curl -X POST http://localhost:8000/api/v1/sms/send-reminders
+```
 
 ---
 
