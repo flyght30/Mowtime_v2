@@ -182,6 +182,76 @@ async def update_business_config(
     return SingleResponse(data=BusinessResponse(**result))
 
 
+@router.patch(
+    "/me",
+    response_model=SingleResponse[BusinessResponse],
+    summary="Partially update current user's business"
+)
+async def patch_my_business(
+    data: dict,
+    current_user: User = Depends(require_roles(UserRole.OWNER, UserRole.ADMIN)),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Partially update current user's business.
+
+    Supports deep updates for nested config objects like:
+    - config.vertical_configs.hvac.labor_rate_install
+    """
+    if not current_user.business_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "NO_BUSINESS", "message": "User is not associated with a business"}
+        )
+
+    # Get current business
+    business = await db.businesses.find_one({
+        "business_id": current_user.business_id,
+        "deleted_at": None
+    })
+
+    if not business:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "BUSINESS_NOT_FOUND", "message": "Business not found"}
+        )
+
+    # Handle nested config updates
+    update_data = {}
+
+    if "config" in data and isinstance(data["config"], dict):
+        current_config = business.get("config", {})
+
+        # Handle vertical_configs specifically for deep merge
+        if "vertical_configs" in data["config"]:
+            current_vertical_configs = current_config.get("vertical_configs", {})
+            for vertical_id, vertical_config in data["config"]["vertical_configs"].items():
+                if vertical_id not in current_vertical_configs:
+                    current_vertical_configs[vertical_id] = {}
+                current_vertical_configs[vertical_id].update(vertical_config)
+            update_data["config.vertical_configs"] = current_vertical_configs
+
+        # Handle other config fields
+        for key, value in data["config"].items():
+            if key != "vertical_configs":
+                update_data[f"config.{key}"] = value
+
+    # Handle top-level updates
+    for key, value in data.items():
+        if key not in ["config", "_id", "business_id", "created_at"]:
+            update_data[key] = value
+
+    update_data["updated_at"] = utc_now()
+
+    result = await db.businesses.find_one_and_update(
+        {"business_id": current_user.business_id, "deleted_at": None},
+        {"$set": update_data},
+        return_document=True
+    )
+
+    return SingleResponse(data=BusinessResponse(**result))
+
+
 @router.get(
     "/me/stats",
     summary="Get business statistics"

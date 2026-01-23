@@ -259,6 +259,21 @@ export const hvacApi = {
     return api.patch(`/hvac/quotes/${quoteId}/status?new_status=${status}`);
   },
 
+  updateQuote: async (quoteId: string, data: {
+    line_items?: QuoteLineItem[];
+    equipment_total?: number;
+    labor_total?: number;
+    materials_total?: number;
+    subtotal?: number;
+    tax?: number;
+    total?: number;
+    cost_total?: number;
+    profit?: number;
+    notes?: string;
+  }): Promise<ApiResponse> => {
+    return api.put(`/hvac/quotes/${quoteId}`, data);
+  },
+
   getQuotePdf: async (quoteId: string): Promise<ApiResponse<{
     quote_id: string;
     format: 'pdf' | 'html';

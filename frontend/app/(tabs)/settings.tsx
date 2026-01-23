@@ -381,6 +381,14 @@ export default function SettingsScreen() {
                 subtitle="Set your operating hours"
                 onPress={() => {}}
               />
+              <View style={styles.divider} />
+              <SettingItem
+                icon="calculator-outline"
+                iconColor={Colors.secondary}
+                title="Pricing Settings"
+                subtitle="Labor rates, margins, and overhead"
+                onPress={() => router.push('/settings/pricing')}
+              />
             </Card>
           </View>
         )}

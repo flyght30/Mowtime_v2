@@ -147,6 +147,7 @@ class QuoteCreate(BaseModel):
 class QuoteResponse(BaseModel):
     """Quote response"""
     quote_id: str
+    job_number: str  # JOB-YYYY-NNNN format
     business_id: str
     client_id: str
     load_calc_id: Optional[str]
@@ -682,15 +683,26 @@ async def create_quote(
 
     total = subtotal + tax
 
-    # Create quote
+    # Create quote with job number
     quote_id = generate_id("quote")
     now = datetime.utcnow()
     expires_at = datetime(
         now.year, now.month, now.day
     ).isoformat()  # Will be updated with valid_days
 
+    # Generate job number in JOB-YYYY-NNNN format
+    # Atomically increment the business's job_number_sequence
+    result = await Database.db.businesses.find_one_and_update(
+        {"business_id": business.business_id},
+        {"$inc": {"job_number_sequence": 1}},
+        return_document=True
+    )
+    sequence = result.get("job_number_sequence", 1) if result else 1
+    job_number = f"JOB-{now.year}-{sequence:04d}"
+
     quote_data = {
         "quote_id": quote_id,
+        "job_number": job_number,
         "business_id": business.business_id,
         "client_id": data.client_id,
         "load_calc_id": data.load_calc_id,
@@ -719,6 +731,7 @@ async def create_quote(
 
     return QuoteResponse(
         quote_id=quote_id,
+        job_number=job_number,
         business_id=business.business_id,
         client_id=data.client_id,
         load_calc_id=data.load_calc_id,

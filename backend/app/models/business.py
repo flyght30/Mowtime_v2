@@ -167,6 +167,9 @@ class Business(BaseDocument):
     total_staff: int = 0
     total_appointments: int = 0
 
+    # Job numbering sequence for HVAC quotes/jobs (JOB-YYYY-NNNN)
+    job_number_sequence: int = 0
+
 
 class BusinessCreate(BaseModel):
     """Schema for creating a business"""
