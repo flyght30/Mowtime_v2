@@ -139,15 +139,26 @@ export default function PhotoAnalyzeScreen() {
   const useEstimates = () => {
     if (!analysis?.suggested_inputs) return;
 
-    // Navigate back with the suggested values
-    router.back();
-    // In a real app, you'd pass these values back to the form
-    Alert.alert(
-      'Estimates Applied',
-      `Square Footage: ${analysis.suggested_inputs.sqft}\n` +
-        `Sun Exposure: ${analysis.suggested_inputs.sun_exposure}\n` +
-        `Window %: ${analysis.suggested_inputs.window_percentage}%`
-    );
+    // Map sun exposure values from AI to calculator format
+    const sunExposureMap: Record<string, string> = {
+      'shady': 'low',
+      'partial': 'mixed',
+      'full': 'high',
+    };
+
+    // Navigate to calculator with pre-filled values
+    router.push({
+      pathname: '/hvac/calculate',
+      params: {
+        square_footage: analysis.suggested_inputs.sqft?.toString() || '',
+        sun_exposure: sunExposureMap[analysis.suggested_inputs.sun_exposure] || 'mixed',
+        window_percentage: analysis.suggested_inputs.window_percentage?.toString() || '15',
+        insulation: analysis.suggested_inputs.insulation || 'average',
+        from_photo_analysis: 'true',
+        roof_type: analysis.roof_type || '',
+        home_age: analysis.home_age || '',
+      },
+    });
   };
 
   return (

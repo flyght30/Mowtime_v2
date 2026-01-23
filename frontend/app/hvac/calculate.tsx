@@ -3,7 +3,7 @@
  * Multi-step wizard for calculating heating/cooling loads
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../../constants/theme';
 import {
@@ -54,10 +54,25 @@ const SUN_EXPOSURE_OPTIONS = [
 
 export default function LoadCalculator() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    square_footage?: string;
+    sun_exposure?: string;
+    window_percentage?: string;
+    insulation?: string;
+    from_photo_analysis?: string;
+    roof_type?: string;
+    home_age?: string;
+  }>();
+
   const [step, setStep] = useState<Step>('property');
   const [loading, setLoading] = useState(false);
   const [lookingUpZip, setLookingUpZip] = useState(false);
   const [result, setResult] = useState<LoadCalculationResult | null>(null);
+  const [fromPhotoAnalysis, setFromPhotoAnalysis] = useState(false);
+  const [photoAnalysisInfo, setPhotoAnalysisInfo] = useState<{
+    roof_type?: string;
+    home_age?: string;
+  } | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     square_footage: 0,
@@ -71,6 +86,27 @@ export default function LoadCalculator() {
     occupants: 4,
     zip_code: '',
   });
+
+  // Apply photo analysis values if coming from that screen
+  useEffect(() => {
+    if (params.from_photo_analysis === 'true') {
+      setFromPhotoAnalysis(true);
+      setFormData((prev) => ({
+        ...prev,
+        square_footage: params.square_footage ? parseInt(params.square_footage) : prev.square_footage,
+        sun_exposure: (params.sun_exposure as 'low' | 'mixed' | 'high') || prev.sun_exposure,
+        insulation_quality: (params.insulation as 'poor' | 'average' | 'good' | 'excellent') || prev.insulation_quality,
+        // Estimate window count from percentage (assuming 2000sqft base)
+        window_count: params.window_percentage
+          ? Math.round((parseInt(params.window_percentage) / 100) * 15 * (parseInt(params.square_footage || '2000') / 2000))
+          : prev.window_count,
+      }));
+      setPhotoAnalysisInfo({
+        roof_type: params.roof_type,
+        home_age: params.home_age,
+      });
+    }
+  }, [params]);
 
   const [climateInfo, setClimateInfo] = useState<{
     zone: number;
@@ -275,6 +311,19 @@ export default function LoadCalculator() {
       <Text style={styles.stepSubtitle}>
         Enter basic details about the property
       </Text>
+
+      {fromPhotoAnalysis && (
+        <View style={styles.photoAnalysisBanner}>
+          <Ionicons name="sparkles" size={20} color={Colors.primary} />
+          <View style={styles.photoAnalysisBannerText}>
+            <Text style={styles.photoAnalysisBannerTitle}>AI Estimates Applied</Text>
+            <Text style={styles.photoAnalysisBannerSubtitle}>
+              Values pre-filled from photo analysis
+              {photoAnalysisInfo?.home_age && ` (${photoAnalysisInfo.home_age} home)`}
+            </Text>
+          </View>
+        </View>
+      )}
 
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>Square Footage *</Text>
@@ -1107,5 +1156,27 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontWeight: Typography.fontWeight.semibold,
     marginLeft: Spacing.xs,
+  },
+  photoAnalysisBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary + '15',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  photoAnalysisBannerText: {
+    flex: 1,
+  },
+  photoAnalysisBannerTitle: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.primary,
+  },
+  photoAnalysisBannerSubtitle: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
 });

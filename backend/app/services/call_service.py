@@ -14,8 +14,18 @@ from app.models.call import (
     Call, CallCreate, CallResponse, CallDirection, CallStatus, CallIntent,
     CallConversation, ConversationTurn, VoicemailMessage, VoicemailResponse
 )
-from app.models.common import utc_now
+from app.models.common import utc_now, generate_id
 from app.services.voice_service import VoiceService, get_voice_service
+from dataclasses import dataclass
+
+
+@dataclass
+class CallResult:
+    """Result of a call operation"""
+    success: bool
+    call_id: Optional[str] = None
+    call_sid: Optional[str] = None
+    error: Optional[str] = None
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -627,3 +637,196 @@ class CallService:
         except Exception as e:
             logger.error(f"Outbound call error: {str(e)}")
             return {"success": False, "error": str(e)}
+
+    async def initiate_followup_call(
+        self,
+        to_number: str,
+        business_name: str,
+        customer_name: str,
+        script: 'FollowUpScript',
+        followup_id: str,
+        callback_url: str,
+        voice_id: Optional[str] = None
+    ) -> CallResult:
+        """
+        Initiate an AI-powered follow-up call.
+
+        Args:
+            to_number: Customer phone number
+            business_name: Name of the business
+            customer_name: Customer's name
+            script: FollowUpScript with conversation prompts
+            followup_id: Follow-up ID for tracking
+            callback_url: URL for call status webhooks
+            voice_id: Optional ElevenLabs voice ID
+
+        Returns:
+            CallResult with call details
+        """
+        if not self.is_configured:
+            return CallResult(success=False, error="Voice service not configured")
+
+        call_id = generate_id("call")
+        url = f"{self.TWILIO_API_BASE}/Accounts/{self.account_sid}/Calls.json"
+
+        # Generate TwiML for conversational follow-up
+        # Uses ElevenLabs voice if configured, otherwise Twilio TTS
+        twiml = self._generate_followup_twiml(
+            script=script,
+            followup_id=followup_id,
+            callback_url=callback_url,
+            voice_id=voice_id
+        )
+
+        payload = {
+            "To": to_number,
+            "From": self.phone_number,
+            "Twiml": twiml,
+            "StatusCallback": callback_url,
+            "StatusCallbackEvent": ["initiated", "ringing", "answered", "completed"],
+            "StatusCallbackMethod": "POST",
+            "MachineDetection": "DetectMessageEnd",  # Detect voicemail
+            "AsyncAmd": "true"
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url,
+                    data=payload,
+                    auth=(self.account_sid, self.auth_token),
+                    timeout=30.0
+                )
+
+                if response.status_code in (200, 201):
+                    data = response.json()
+                    call_sid = data.get("sid")
+
+                    logger.info(f"Follow-up call initiated: {call_id}, SID: {call_sid}")
+
+                    return CallResult(
+                        success=True,
+                        call_id=call_id,
+                        call_sid=call_sid
+                    )
+                else:
+                    error_data = response.json()
+                    error_msg = error_data.get("message", "Unknown error")
+                    logger.error(f"Follow-up call error: {error_msg}")
+                    return CallResult(success=False, error=error_msg)
+
+        except Exception as e:
+            logger.error(f"Follow-up call exception: {str(e)}")
+            return CallResult(success=False, error=str(e))
+
+    def _generate_followup_twiml(
+        self,
+        script: 'FollowUpScript',
+        followup_id: str,
+        callback_url: str,
+        voice_id: Optional[str] = None
+    ) -> str:
+        """
+        Generate TwiML for an AI-powered follow-up conversation.
+
+        The flow is:
+        1. Greeting
+        2. Ask satisfaction question
+        3. Gather response
+        4. Based on response: positive path (review request) or negative path (escalate)
+        5. Closing
+        """
+        from urllib.parse import quote
+
+        use_elevenlabs = self.voice.is_configured
+        gather_url = f"{callback_url}/gather"
+
+        # Build the TwiML
+        twiml = '<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n'
+
+        # Greeting and satisfaction question
+        greeting_text = f"{script.greeting} {script.satisfaction_question}"
+
+        if use_elevenlabs and voice_id:
+            audio_url = f"{settings.API_BASE_URL}/api/v1/voice/audio/stream?text={quote(greeting_text)}&voice_id={voice_id}"
+            twiml += f'    <Gather input="speech" action="{gather_url}" method="POST" speechTimeout="auto" speechModel="phone_call" enhanced="true">\n'
+            twiml += f'        <Play>{audio_url}</Play>\n'
+            twiml += '    </Gather>\n'
+        else:
+            twiml += f'    <Gather input="speech" action="{gather_url}" method="POST" speechTimeout="auto" speechModel="phone_call" enhanced="true">\n'
+            twiml += f'        <Say voice="Polly.Joanna">{greeting_text}</Say>\n'
+            twiml += '    </Gather>\n'
+
+        # Fallback if no input
+        no_response = "I didn't catch that. We'll try calling back another time. Have a great day!"
+        if use_elevenlabs and voice_id:
+            fallback_url = f"{settings.API_BASE_URL}/api/v1/voice/audio/stream?text={quote(no_response)}&voice_id={voice_id}"
+            twiml += f'    <Play>{fallback_url}</Play>\n'
+        else:
+            twiml += f'    <Say voice="Polly.Joanna">{no_response}</Say>\n'
+
+        twiml += '    <Hangup/>\n'
+        twiml += '</Response>'
+
+        return twiml
+
+    def generate_followup_response_twiml(
+        self,
+        is_positive: bool,
+        script: 'FollowUpScript',
+        callback_url: str,
+        voice_id: Optional[str] = None,
+        include_review_request: bool = True
+    ) -> str:
+        """
+        Generate TwiML response based on customer feedback during follow-up.
+
+        Args:
+            is_positive: Whether customer response was positive
+            script: The follow-up script
+            callback_url: Callback URL for further interaction
+            voice_id: Optional ElevenLabs voice ID
+            include_review_request: Whether to ask for a review (positive only)
+
+        Returns:
+            TwiML string
+        """
+        from urllib.parse import quote
+
+        use_elevenlabs = self.voice.is_configured
+
+        twiml = '<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n'
+
+        if is_positive:
+            # Positive response + optional review request + closing
+            if include_review_request:
+                message = f"{script.positive_response} {script.review_request} {script.closing}"
+            else:
+                message = f"{script.positive_response} {script.closing}"
+        else:
+            # Negative response + closing
+            message = f"{script.negative_response} {script.closing}"
+
+        if use_elevenlabs and voice_id:
+            audio_url = f"{settings.API_BASE_URL}/api/v1/voice/audio/stream?text={quote(message)}&voice_id={voice_id}"
+            twiml += f'    <Play>{audio_url}</Play>\n'
+        else:
+            twiml += f'    <Say voice="Polly.Joanna">{message}</Say>\n'
+
+        twiml += '    <Hangup/>\n'
+        twiml += '</Response>'
+
+        return twiml
+
+
+# Singleton instance
+_call_service: Optional[CallService] = None
+
+
+def get_call_service(db: AsyncIOMotorDatabase = None) -> CallService:
+    """Get call service singleton"""
+    global _call_service
+    if _call_service is None or db is not None:
+        from app.database import Database
+        _call_service = CallService(db or Database.get_database())
+    return _call_service

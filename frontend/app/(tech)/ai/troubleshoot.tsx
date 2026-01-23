@@ -3,7 +3,7 @@
  * AI-powered HVAC troubleshooting assistant for technicians
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,9 +15,11 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Animated,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../../constants/theme';
 import api from '../../../services/api';
 
@@ -75,9 +77,115 @@ export default function TroubleshootScreen() {
   const [showBrandPicker, setShowBrandPicker] = useState(false);
   const [showSymptomPicker, setShowSymptomPicker] = useState(false);
 
+  // Voice recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Checklist state for diagnostic steps
+  const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});
+
   useEffect(() => {
     loadBrandsAndSymptoms();
+    return () => {
+      // Cleanup recording on unmount
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync();
+      }
+    };
   }, []);
+
+  // Pulse animation for recording indicator
+  useEffect(() => {
+    if (isRecording) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [isRecording]);
+
+  const startRecording = async () => {
+    try {
+      const permission = await Audio.requestPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Required', 'Please grant microphone access to use voice input.');
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      recordingRef.current = recording;
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Failed to start recording:', err);
+      Alert.alert('Error', 'Failed to start recording');
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!recordingRef.current) return;
+
+    setIsRecording(false);
+    setIsTranscribing(true);
+
+    try {
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI();
+      recordingRef.current = null;
+
+      if (uri) {
+        // Upload and transcribe
+        const formData = new FormData();
+        formData.append('file', {
+          uri,
+          name: 'recording.m4a',
+          type: 'audio/m4a',
+        } as any);
+
+        const response = await api.post('/api/v1/voice-notes/transcribe', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (response.data?.data?.text) {
+          setDescription((prev) =>
+            prev ? `${prev} ${response.data.data.text}` : response.data.data.text
+          );
+        }
+      }
+    } catch (err) {
+      console.error('Transcription error:', err);
+      Alert.alert('Error', 'Failed to transcribe audio. Please try again or type your description.');
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const toggleStep = (index: number) => {
+    setCheckedSteps((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
+  };
 
   const loadBrandsAndSymptoms = async () => {
     try {
@@ -264,19 +372,44 @@ export default function TroubleshootScreen() {
                 </View>
               )}
 
-              {/* Description Input */}
-              <View style={styles.inputContainer}>
-                <Ionicons name="chatbox" size={20} color={Colors.textSecondary} />
-                <TextInput
-                  style={[styles.textInput, styles.multilineInput]}
-                  placeholder="Describe the issue (optional)"
-                  value={description}
-                  onChangeText={setDescription}
-                  multiline
-                  numberOfLines={3}
-                  placeholderTextColor={Colors.textSecondary}
-                />
+              {/* Description Input with Voice */}
+              <View style={styles.descriptionContainer}>
+                <View style={[styles.inputContainer, styles.descriptionInput]}>
+                  <Ionicons name="chatbox" size={20} color={Colors.textSecondary} />
+                  <TextInput
+                    style={[styles.textInput, styles.multilineInput]}
+                    placeholder="Describe the issue (optional)"
+                    value={description}
+                    onChangeText={setDescription}
+                    multiline
+                    numberOfLines={3}
+                    placeholderTextColor={Colors.textSecondary}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.voiceButton,
+                    isRecording && styles.voiceButtonRecording,
+                  ]}
+                  onPress={isRecording ? stopRecording : startRecording}
+                  disabled={isTranscribing}
+                >
+                  {isTranscribing ? (
+                    <ActivityIndicator size="small" color={Colors.white} />
+                  ) : (
+                    <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                      <Ionicons
+                        name={isRecording ? 'stop' : 'mic'}
+                        size={24}
+                        color={Colors.white}
+                      />
+                    </Animated.View>
+                  )}
+                </TouchableOpacity>
               </View>
+              {isRecording && (
+                <Text style={styles.recordingText}>Recording... Tap to stop</Text>
+              )}
             </View>
 
             {/* Diagnose Button */}
@@ -339,13 +472,58 @@ export default function TroubleshootScreen() {
                   </View>
 
                   <View style={styles.errorSection}>
-                    <Text style={styles.errorSectionTitle}>Solutions</Text>
+                    <Text style={styles.errorSectionTitle}>Solutions (tap to mark complete)</Text>
                     {result.error_info.solutions.map((solution, i) => (
-                      <View key={i} style={styles.bulletItem}>
-                        <Text style={styles.bulletNumber}>{i + 1}.</Text>
-                        <Text style={styles.bulletText}>{solution}</Text>
-                      </View>
+                      <TouchableOpacity
+                        key={i}
+                        style={[
+                          styles.checklistItem,
+                          checkedSteps[i] && styles.checklistItemChecked,
+                        ]}
+                        onPress={() => toggleStep(i)}
+                      >
+                        <View
+                          style={[
+                            styles.checkbox,
+                            checkedSteps[i] && styles.checkboxChecked,
+                          ]}
+                        >
+                          {checkedSteps[i] && (
+                            <Ionicons name="checkmark" size={14} color={Colors.white} />
+                          )}
+                        </View>
+                        <Text
+                          style={[
+                            styles.checklistText,
+                            checkedSteps[i] && styles.checklistTextChecked,
+                          ]}
+                        >
+                          {i + 1}. {solution}
+                        </Text>
+                      </TouchableOpacity>
                     ))}
+                    {Object.keys(checkedSteps).length > 0 && (
+                      <View style={styles.progressContainer}>
+                        <View style={styles.progressBar}>
+                          <View
+                            style={[
+                              styles.progressFill,
+                              {
+                                width: `${
+                                  (Object.values(checkedSteps).filter(Boolean).length /
+                                    result.error_info.solutions.length) *
+                                  100
+                                }%`,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.progressText}>
+                          {Object.values(checkedSteps).filter(Boolean).length} of{' '}
+                          {result.error_info.solutions.length} complete
+                        </Text>
+                      </View>
+                    )}
                   </View>
 
                   {result.error_info.parts_needed.length > 0 && (
@@ -721,5 +899,93 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: Typography.fontSize.base,
     fontWeight: Typography.fontWeight.semibold,
+  },
+  // Voice input styles
+  descriptionContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+  },
+  descriptionInput: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  voiceButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: Spacing.xs,
+  },
+  voiceButtonRecording: {
+    backgroundColor: Colors.error,
+  },
+  recordingText: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.error,
+    textAlign: 'center',
+    marginTop: Spacing.xs,
+    fontWeight: Typography.fontWeight.medium,
+  },
+  // Checklist styles
+  checklistItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: Spacing.sm,
+    marginVertical: 2,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.gray50,
+    gap: Spacing.sm,
+  },
+  checklistItemChecked: {
+    backgroundColor: Colors.success + '15',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: Colors.gray300,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    backgroundColor: Colors.success,
+    borderColor: Colors.success,
+  },
+  checklistText: {
+    flex: 1,
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text,
+    lineHeight: 20,
+  },
+  checklistTextChecked: {
+    color: Colors.textSecondary,
+    textDecorationLine: 'line-through',
+  },
+  progressContainer: {
+    marginTop: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  progressBar: {
+    flex: 1,
+    height: 6,
+    backgroundColor: Colors.gray200,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: Colors.success,
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
   },
 });
