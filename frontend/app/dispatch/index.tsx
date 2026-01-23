@@ -37,6 +37,8 @@ const STATUS_COLORS: Record<TechStatus, string> = {
   off_duty: Colors.gray400,
 };
 
+type ViewMode = 'day' | 'week';
+
 export default function DispatchBoardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -44,6 +46,9 @@ export default function DispatchBoardScreen() {
   const [assignedJobs, setAssignedJobs] = useState<DispatchJob[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [stats, setStats] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('day');
+  const [weekSchedule, setWeekSchedule] = useState<any>(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   // Assign modal state
   const [assignModalVisible, setAssignModalVisible] = useState(false);
@@ -52,6 +57,25 @@ export default function DispatchBoardScreen() {
   const [assignLoading, setAssignLoading] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
+
+  // Get week dates
+  const getWeekDates = (date: Date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday as start
+    const monday = new Date(d.setDate(diff));
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const current = new Date(monday);
+      current.setDate(monday.getDate() + i);
+      dates.push(current);
+    }
+    return dates;
+  };
+
+  const weekDates = getWeekDates(selectedDate);
+  const weekStart = weekDates[0].toISOString().split('T')[0];
+  const weekEnd = weekDates[6].toISOString().split('T')[0];
 
   const loadData = useCallback(async () => {
     try {
@@ -73,13 +97,21 @@ export default function DispatchBoardScreen() {
       if (statsRes.success && statsRes.data) {
         setStats(statsRes.data);
       }
+
+      // Load week schedule if in week mode
+      if (viewMode === 'week') {
+        const weekRes = await scheduleApi.getWeekly(weekStart);
+        if (weekRes.success && weekRes.data) {
+          setWeekSchedule(weekRes.data);
+        }
+      }
     } catch (err) {
       Alert.alert('Error', 'Failed to load dispatch data');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [today]);
+  }, [today, viewMode, weekStart]);
 
   useEffect(() => {
     loadData();
@@ -187,12 +219,127 @@ export default function DispatchBoardScreen() {
     );
   }
 
+  // Navigate week
+  const navigateWeek = (direction: number) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + (direction * 7));
+    setSelectedDate(newDate);
+  };
+
+  // Format date for display
+  const formatDateShort = (date: Date) => {
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  const formatDayLabel = (date: Date) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[date.getDay()];
+  };
+
+  // Render week view
+  const renderWeekView = () => {
+    if (!weekSchedule) return null;
+
+    return (
+      <View style={styles.weekContainer}>
+        {/* Week Navigation */}
+        <View style={styles.weekNav}>
+          <TouchableOpacity onPress={() => navigateWeek(-1)} style={styles.weekNavButton}>
+            <Ionicons name="chevron-back" size={24} color={Colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.weekNavTitle}>
+            {formatDateShort(weekDates[0])} - {formatDateShort(weekDates[6])}
+          </Text>
+          <TouchableOpacity onPress={() => navigateWeek(1)} style={styles.weekNavButton}>
+            <Ionicons name="chevron-forward" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Week Grid */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.weekGrid}>
+            {weekDates.map((date, index) => {
+              const dateStr = date.toISOString().split('T')[0];
+              const daySchedule = weekSchedule.schedule?.[dateStr] || [];
+              const isToday = dateStr === today;
+
+              return (
+                <View key={dateStr} style={[styles.dayColumn, isToday && styles.todayColumn]}>
+                  <View style={[styles.dayHeader, isToday && styles.todayHeader]}>
+                    <Text style={[styles.dayLabel, isToday && styles.todayText]}>
+                      {formatDayLabel(date)}
+                    </Text>
+                    <Text style={[styles.dayNumber, isToday && styles.todayText]}>
+                      {date.getDate()}
+                    </Text>
+                  </View>
+                  <View style={styles.dayJobs}>
+                    {daySchedule.length === 0 ? (
+                      <Text style={styles.noJobsText}>-</Text>
+                    ) : (
+                      daySchedule.slice(0, 5).map((entry: any) => (
+                        <View key={entry.entry_id} style={styles.weekJobCard}>
+                          <Text style={styles.weekJobTime}>
+                            {entry.start_time?.slice(0, 5)}
+                          </Text>
+                          <Text style={styles.weekJobType} numberOfLines={1}>
+                            {entry.job_type || 'Job'}
+                          </Text>
+                          <Text style={styles.weekJobTech} numberOfLines={1}>
+                            {entry.tech_name?.split(' ')[0] || 'TBA'}
+                          </Text>
+                        </View>
+                      ))
+                    )}
+                    {daySchedule.length > 5 && (
+                      <Text style={styles.moreJobs}>+{daySchedule.length - 5} more</Text>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[Colors.primary]} />}
         contentContainerStyle={styles.content}
       >
+        {/* View Mode Toggle */}
+        <View style={styles.viewToggle}>
+          <TouchableOpacity
+            style={[styles.toggleButton, viewMode === 'day' && styles.toggleButtonActive]}
+            onPress={() => setViewMode('day')}
+          >
+            <Ionicons
+              name="today"
+              size={18}
+              color={viewMode === 'day' ? Colors.white : Colors.text}
+            />
+            <Text style={[styles.toggleText, viewMode === 'day' && styles.toggleTextActive]}>
+              Day
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleButton, viewMode === 'week' && styles.toggleButtonActive]}
+            onPress={() => setViewMode('week')}
+          >
+            <Ionicons
+              name="calendar"
+              size={18}
+              color={viewMode === 'week' ? Colors.white : Colors.text}
+            />
+            <Text style={[styles.toggleText, viewMode === 'week' && styles.toggleTextActive]}>
+              Week
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Stats Bar */}
         {stats && (
           <View style={styles.statsBar}>
@@ -247,21 +394,26 @@ export default function DispatchBoardScreen() {
           )}
         </View>
 
-        {/* Today's Assigned Jobs */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Schedule</Text>
-            <Text style={styles.sectionCount}>{assignedJobs.length} jobs</Text>
-          </View>
-          {assignedJobs.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="calendar-outline" size={48} color={Colors.gray300} />
-              <Text style={styles.emptyText}>No jobs scheduled for today</Text>
+        {/* Day View: Today's Assigned Jobs */}
+        {viewMode === 'day' && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Today's Schedule</Text>
+              <Text style={styles.sectionCount}>{assignedJobs.length} jobs</Text>
             </View>
-          ) : (
-            assignedJobs.map(job => renderJobCard(job, true))
-          )}
-        </View>
+            {assignedJobs.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="calendar-outline" size={48} color={Colors.gray300} />
+                <Text style={styles.emptyText}>No jobs scheduled for today</Text>
+              </View>
+            ) : (
+              assignedJobs.map(job => renderJobCard(job, true))
+            )}
+          </View>
+        )}
+
+        {/* Week View */}
+        {viewMode === 'week' && renderWeekView()}
       </ScrollView>
 
       {/* Assign Modal */}
@@ -606,5 +758,123 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: Colors.textSecondary,
     padding: Spacing.lg,
+  },
+  // View Toggle
+  viewToggle: {
+    flexDirection: 'row',
+    backgroundColor: Colors.gray100,
+    borderRadius: BorderRadius.md,
+    padding: 4,
+    marginBottom: Spacing.md,
+  },
+  toggleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    gap: Spacing.xs,
+  },
+  toggleButtonActive: {
+    backgroundColor: Colors.primary,
+  },
+  toggleText: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.text,
+  },
+  toggleTextActive: {
+    color: Colors.white,
+  },
+  // Week View
+  weekContainer: {
+    marginTop: Spacing.md,
+  },
+  weekNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+  },
+  weekNavButton: {
+    padding: Spacing.sm,
+  },
+  weekNavTitle: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.text,
+  },
+  weekGrid: {
+    flexDirection: 'row',
+  },
+  dayColumn: {
+    width: 120,
+    marginRight: Spacing.sm,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+    ...Shadows.sm,
+  },
+  todayColumn: {
+    borderWidth: 2,
+    borderColor: Colors.primary,
+  },
+  dayHeader: {
+    backgroundColor: Colors.gray100,
+    padding: Spacing.sm,
+    alignItems: 'center',
+  },
+  todayHeader: {
+    backgroundColor: Colors.primary,
+  },
+  dayLabel: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
+    fontWeight: Typography.fontWeight.medium,
+  },
+  dayNumber: {
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.text,
+  },
+  todayText: {
+    color: Colors.white,
+  },
+  dayJobs: {
+    padding: Spacing.xs,
+    minHeight: 150,
+  },
+  noJobsText: {
+    textAlign: 'center',
+    color: Colors.gray300,
+    marginTop: Spacing.md,
+  },
+  weekJobCard: {
+    backgroundColor: Colors.gray50,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.xs,
+    marginBottom: Spacing.xs,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
+  },
+  weekJobTime: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.primary,
+  },
+  weekJobType: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.text,
+  },
+  weekJobTech: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
+  },
+  moreJobs: {
+    textAlign: 'center',
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
+    marginTop: Spacing.xs,
   },
 });

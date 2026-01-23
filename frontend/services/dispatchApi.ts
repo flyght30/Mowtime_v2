@@ -38,6 +38,37 @@ export interface TechLocation {
   accuracy: number | null;
 }
 
+// Map display types
+export interface TechMapLocation {
+  tech_id: string;
+  tech_name: string;
+  status: TechStatus;
+  latitude: number;
+  longitude: number;
+  current_job: string | null;
+  color: string;
+}
+
+export interface JobPin {
+  job_id: string;
+  job_number: string;
+  customer_name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  status: string;
+  tech_id: string | null;
+  tech_name: string | null;
+  scheduled_time: string | null;
+  job_type: string;
+}
+
+export interface MapData {
+  date: string;
+  technicians: TechMapLocation[];
+  jobs: JobPin[];
+}
+
 export interface Technician {
   tech_id: string;
   business_id: string;
@@ -330,28 +361,7 @@ export const dispatchApi = {
   },
 
   // Get map data
-  getMapData: async (date?: string): Promise<ApiResponse<{
-    date: string;
-    technicians: {
-      id: string;
-      name: string;
-      status: TechStatus;
-      location: { lat: number; lng: number } | null;
-      current_job_id: string | null;
-      color: string;
-    }[];
-    jobs: {
-      id: string;
-      job_number: string;
-      customer_name: string;
-      address: string;
-      location: { lat: number; lng: number } | null;
-      status: string;
-      tech_id: string | null;
-      scheduled_time: string | null;
-      job_type: string;
-    }[];
-  }>> => {
+  getMapData: async (date?: string): Promise<ApiResponse<MapData>> => {
     const query = date ? `?date=${date}` : '';
     return api.get(`/dispatch/map-data${query}`);
   },

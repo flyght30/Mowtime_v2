@@ -118,6 +118,49 @@ class Database:
         await cls.db.audit_log.create_index("user_id")
         await cls.db.audit_log.create_index("created_at")
 
+        # Technicians collection indexes
+        await cls.db.technicians.create_index("tech_id", unique=True)
+        await cls.db.technicians.create_index("business_id")
+        await cls.db.technicians.create_index("user_id")
+        await cls.db.technicians.create_index([("business_id", 1), ("is_active", 1)])
+        await cls.db.technicians.create_index([("business_id", 1), ("status", 1)])
+        # Geospatial index for location-based queries (find nearby techs)
+        await cls.db.technicians.create_index([("location.coordinates", "2dsphere")])
+
+        # Tech location history collection indexes (GPS trail)
+        await cls.db.tech_location_history.create_index("tech_id")
+        await cls.db.tech_location_history.create_index([("tech_id", 1), ("timestamp", -1)])
+        # TTL index - auto-delete after 7 days
+        await cls.db.tech_location_history.create_index(
+            "timestamp",
+            expireAfterSeconds=7 * 24 * 60 * 60  # 7 days
+        )
+
+        # Schedule entries collection indexes
+        await cls.db.schedule_entries.create_index("entry_id", unique=True)
+        await cls.db.schedule_entries.create_index("business_id")
+        await cls.db.schedule_entries.create_index("tech_id")
+        await cls.db.schedule_entries.create_index("job_id")
+        await cls.db.schedule_entries.create_index([("tech_id", 1), ("scheduled_date", 1)])
+        await cls.db.schedule_entries.create_index([
+            ("business_id", 1),
+            ("scheduled_date", 1),
+            ("status", 1)
+        ])
+
+        # SMS messages collection indexes
+        await cls.db.sms_messages.create_index("message_id", unique=True)
+        await cls.db.sms_messages.create_index("business_id")
+        await cls.db.sms_messages.create_index("customer_id")
+        await cls.db.sms_messages.create_index("job_id")
+        await cls.db.sms_messages.create_index([("business_id", 1), ("customer_id", 1), ("created_at", -1)])
+        await cls.db.sms_messages.create_index([("business_id", 1), ("direction", 1), ("created_at", -1)])
+
+        # SMS templates collection indexes
+        await cls.db.sms_templates.create_index("template_id", unique=True)
+        await cls.db.sms_templates.create_index("business_id")
+        await cls.db.sms_templates.create_index([("business_id", 1), ("trigger_type", 1)])
+
         logger.info("Database indexes created successfully")
 
     @classmethod

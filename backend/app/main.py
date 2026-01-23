@@ -121,6 +121,7 @@ from app.routers.technicians import router as technicians_router
 from app.routers.dispatch_schedule import router as schedule_router
 from app.routers.dispatch import router as dispatch_router
 from app.routers.sms import router as sms_router
+from app.routers.websocket import router as websocket_router
 
 # API v1 routers
 app.include_router(auth_router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
@@ -139,6 +140,7 @@ app.include_router(technicians_router, prefix=f"{settings.API_V1_PREFIX}/technic
 app.include_router(schedule_router, prefix=f"{settings.API_V1_PREFIX}/schedule", tags=["Schedule"])
 app.include_router(dispatch_router, prefix=f"{settings.API_V1_PREFIX}/dispatch", tags=["Dispatch"])
 app.include_router(sms_router, prefix=f"{settings.API_V1_PREFIX}/sms", tags=["SMS"])
+app.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
 
 
 if __name__ == "__main__":
