@@ -29,6 +29,7 @@ import {
   formatAddress,
   formatDuration,
 } from '../../../../services/techApi';
+import JobChecklist, { ChecklistItem, getChecklistForJobType } from '../../../../components/tech/JobChecklist';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -48,6 +49,7 @@ export default function ActiveJobScreen() {
   const [loading, setLoading] = useState(!currentJob);
   const [actionLoading, setActionLoading] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
 
   // Load job if not current
   useEffect(() => {
@@ -70,6 +72,14 @@ export default function ActiveJobScreen() {
 
     loadJob();
   }, [id, currentJob]);
+
+  // Initialize checklist when job loads
+  useEffect(() => {
+    if (job?.service_type) {
+      const items = getChecklistForJobType(job.service_type);
+      setChecklist(items);
+    }
+  }, [job?.service_type]);
 
   // Timer for elapsed time
   useEffect(() => {
@@ -164,6 +174,21 @@ export default function ActiveJobScreen() {
   const handleComplete = () => {
     if (!job) return;
     router.push(`/(tech)/job/${job.job_id}/complete`);
+  };
+
+  const handleToggleChecklist = (itemId: string) => {
+    setChecklist((prev) =>
+      prev.map((item) =>
+        item.id === itemId ? { ...item, completed: !item.completed } : item
+      )
+    );
+  };
+
+  const handleAddChecklistItem = (label: string) => {
+    setChecklist((prev) => [
+      ...prev,
+      { id: `custom_${Date.now()}`, label, completed: false },
+    ]);
   };
 
   const handleCancel = () => {
@@ -324,6 +349,18 @@ export default function ActiveJobScreen() {
             <Text style={styles.notesText}>
               {job.special_instructions || job.notes}
             </Text>
+          </View>
+        )}
+
+        {/* Job Checklist */}
+        {isOnSite && checklist.length > 0 && (
+          <View style={styles.checklistSection}>
+            <JobChecklist
+              items={checklist}
+              onToggle={handleToggleChecklist}
+              onAddItem={handleAddChecklistItem}
+              title="Job Checklist"
+            />
           </View>
         )}
 
@@ -541,6 +578,10 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm,
     color: Colors.text,
     lineHeight: 20,
+  },
+  checklistSection: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
   },
   actions: {
     padding: Spacing.lg,

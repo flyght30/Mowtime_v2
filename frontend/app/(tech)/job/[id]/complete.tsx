@@ -1,9 +1,9 @@
 /**
  * Job Completion Screen
- * Capture photos, signature, and notes to complete a job
+ * Capture photos, signature, voice notes, and completion notes
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../../../constants/theme';
 import { useTech } from '../../../../contexts/TechContext';
+import SignaturePad from '../../../../components/tech/SignaturePad';
+import VoiceRecorder from '../../../../components/tech/VoiceRecorder';
+import { useOfflineQueue } from '../../../../hooks/useOfflineQueue';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PHOTO_SIZE = (SCREEN_WIDTH - Spacing.md * 2 - Spacing.sm * 2) / 3;
@@ -37,16 +40,21 @@ export default function CompleteJobScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { currentJob, completeJob, refreshJobs } = useTech();
+  const { isOnline, queueLength, makeRequest } = useOfflineQueue();
 
   const [notes, setNotes] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [signature, setSignature] = useState<string | null>(null);
+  const [voiceNoteUri, setVoiceNoteUri] = useState<string | null>(null);
+  const [voiceNoteDuration, setVoiceNoteDuration] = useState(0);
   const [laborHours, setLaborHours] = useState('');
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
   const [finalPrice, setFinalPrice] = useState(
     currentJob?.estimated_price?.toString() || ''
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAddMaterial, setShowAddMaterial] = useState(false);
+  const [newMaterialName, setNewMaterialName] = useState('');
 
   const handleTakePhoto = async () => {
     try {
@@ -118,26 +126,26 @@ export default function CompleteJobScreen() {
   };
 
   const handleAddMaterial = () => {
-    Alert.prompt(
-      'Add Material',
-      'Enter material name',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add',
-          onPress: (name) => {
-            if (name) {
-              setMaterials([...materials, { name, quantity: 1, price: 0 }]);
-            }
-          },
-        },
-      ],
-      'plain-text'
-    );
+    if (!newMaterialName.trim()) {
+      setShowAddMaterial(false);
+      return;
+    }
+    setMaterials([...materials, { name: newMaterialName.trim(), quantity: 1, price: 0 }]);
+    setNewMaterialName('');
+    setShowAddMaterial(false);
   };
 
   const handleRemoveMaterial = (index: number) => {
     setMaterials(materials.filter((_, i) => i !== index));
+  };
+
+  const handleVoiceRecording = (uri: string, duration: number) => {
+    setVoiceNoteUri(uri);
+    setVoiceNoteDuration(duration);
+  };
+
+  const handleSignature = (sig: string) => {
+    setSignature(sig);
   };
 
   const handleSubmit = async () => {
@@ -155,9 +163,13 @@ export default function CompleteJobScreen() {
       return;
     }
 
+    const offlineWarning = !isOnline
+      ? '\n\nNote: You are currently offline. The completion will be queued and submitted when connectivity is restored.'
+      : '';
+
     Alert.alert(
       'Complete Job',
-      'Are you sure you want to mark this job as complete?',
+      `Are you sure you want to mark this job as complete?${offlineWarning}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -165,27 +177,51 @@ export default function CompleteJobScreen() {
           onPress: async () => {
             setIsSubmitting(true);
             try {
-              await completeJob(currentJob.job_id, {
+              const completionData = {
                 notes: notes.trim() || undefined,
                 photos,
                 signature: signature || undefined,
+                voice_note_uri: voiceNoteUri || undefined,
+                voice_note_duration: voiceNoteDuration || undefined,
                 final_price: finalPrice ? parseFloat(finalPrice) : undefined,
                 materials_used: materials.length > 0 ? materials : undefined,
                 labor_hours: laborHours ? parseFloat(laborHours) : undefined,
-              });
+              };
 
-              await refreshJobs();
+              if (isOnline) {
+                await completeJob(currentJob.job_id, completionData);
+                await refreshJobs();
 
-              Alert.alert(
-                'Job Completed',
-                'Great work! The job has been marked as complete.',
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => router.replace('/(tech)'),
-                  },
-                ]
-              );
+                Alert.alert(
+                  'Job Completed',
+                  'Great work! The job has been marked as complete.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => router.replace('/(tech)'),
+                    },
+                  ]
+                );
+              } else {
+                // Queue for later
+                await makeRequest(
+                  `/technicians/me/jobs/${currentJob.job_id}/complete`,
+                  'POST',
+                  completionData,
+                  { offlineCapable: true }
+                );
+
+                Alert.alert(
+                  'Completion Queued',
+                  'Your job completion has been saved and will be submitted when you are back online.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => router.replace('/(tech)'),
+                    },
+                  ]
+                );
+              }
             } catch (error) {
               console.error('Failed to complete job:', error);
               Alert.alert('Error', 'Failed to complete job. Please try again.');
@@ -198,17 +234,21 @@ export default function CompleteJobScreen() {
     );
   };
 
-  const calculateTotal = () => {
-    const laborTotal = parseFloat(laborHours || '0') * 50; // $50/hr placeholder
-    const materialTotal = materials.reduce((sum, m) => sum + m.price * m.quantity, 0);
-    return (laborTotal + materialTotal).toFixed(2);
-  };
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      {/* Offline Banner */}
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <Ionicons name="cloud-offline" size={16} color={Colors.white} />
+          <Text style={styles.offlineText}>
+            Offline Mode {queueLength > 0 ? `(${queueLength} queued)` : ''}
+          </Text>
+        </View>
+      )}
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -259,18 +299,24 @@ export default function CompleteJobScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Completion Notes</Text>
           <Text style={styles.sectionSubtitle}>
-            Add any notes about the work performed
+            Add notes about the work performed
           </Text>
 
           <TextInput
             style={styles.notesInput}
-            placeholder="Describe the work completed, any issues encountered, or recommendations for the customer..."
+            placeholder="Describe the work completed, any issues encountered, or recommendations..."
             placeholderTextColor={Colors.gray400}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
             value={notes}
             onChangeText={setNotes}
+          />
+
+          {/* Voice Recorder */}
+          <VoiceRecorder
+            onRecordingComplete={handleVoiceRecording}
+            maxDuration={120}
           />
         </View>
 
@@ -293,14 +339,34 @@ export default function CompleteJobScreen() {
             <Text style={styles.inputLabel}>Materials Used</Text>
             <TouchableOpacity
               style={styles.addMaterialButton}
-              onPress={handleAddMaterial}
+              onPress={() => setShowAddMaterial(true)}
             >
               <Ionicons name="add" size={16} color={Colors.primary} />
               <Text style={styles.addMaterialText}>Add</Text>
             </TouchableOpacity>
           </View>
 
-          {materials.length === 0 ? (
+          {showAddMaterial && (
+            <View style={styles.addMaterialInput}>
+              <TextInput
+                style={styles.materialNameInput}
+                placeholder="Material name..."
+                placeholderTextColor={Colors.gray400}
+                value={newMaterialName}
+                onChangeText={setNewMaterialName}
+                onSubmitEditing={handleAddMaterial}
+                autoFocus
+              />
+              <TouchableOpacity
+                style={styles.addMaterialConfirm}
+                onPress={handleAddMaterial}
+              >
+                <Ionicons name="checkmark" size={20} color={Colors.primary} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {materials.length === 0 && !showAddMaterial ? (
             <Text style={styles.noMaterials}>No materials added</Text>
           ) : (
             materials.map((material, index) => (
@@ -365,31 +431,18 @@ export default function CompleteJobScreen() {
           </View>
         </View>
 
-        {/* Signature Section (Optional) */}
+        {/* Signature Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Customer Signature</Text>
           <Text style={styles.sectionSubtitle}>
-            Optional - Get customer signature for verification
+            Get customer signature for verification
           </Text>
 
-          <TouchableOpacity
-            style={styles.signatureBox}
-            onPress={() => {
-              Alert.alert(
-                'Signature',
-                'Signature capture will be implemented with a dedicated component.'
-              );
-            }}
-          >
-            {signature ? (
-              <Image source={{ uri: signature }} style={styles.signatureImage} />
-            ) : (
-              <>
-                <Ionicons name="create-outline" size={32} color={Colors.gray400} />
-                <Text style={styles.signatureText}>Tap to capture signature</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <SignaturePad
+            onSave={handleSignature}
+            signature={signature}
+            customerName={currentJob?.client?.name}
+          />
         </View>
       </ScrollView>
 
@@ -421,6 +474,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.warning,
+    paddingVertical: Spacing.sm,
+  },
+  offlineText: {
+    color: Colors.white,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
   },
   scroll: {
     flex: 1,
@@ -499,6 +565,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.base,
     color: Colors.text,
     minHeight: 100,
+    marginBottom: Spacing.md,
   },
   inputRow: {
     flexDirection: 'row',
@@ -539,6 +606,23 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm,
     color: Colors.primary,
     fontWeight: Typography.fontWeight.medium,
+  },
+  addMaterialInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.gray100,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  materialNameInput: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    fontSize: Typography.fontSize.base,
+    color: Colors.text,
+  },
+  addMaterialConfirm: {
+    padding: Spacing.sm,
   },
   noMaterials: {
     fontSize: Typography.fontSize.sm,
@@ -612,26 +696,6 @@ const styles = StyleSheet.create({
     color: Colors.text,
     paddingVertical: Spacing.sm,
     minWidth: 80,
-  },
-  signatureBox: {
-    height: 120,
-    borderRadius: BorderRadius.md,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.gray50,
-  },
-  signatureImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
-  },
-  signatureText: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.gray400,
-    marginTop: Spacing.sm,
   },
   footer: {
     padding: Spacing.md,

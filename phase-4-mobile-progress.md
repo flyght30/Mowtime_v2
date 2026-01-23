@@ -91,6 +91,7 @@ Completed: 2026-01-23
 - [x] Address with navigation
 - [x] Time info (scheduled, duration, elapsed)
 - [x] Notes section
+- [x] Job checklist with progress tracking
 - [x] Arrive/Complete action buttons
 - [x] Cancel job option
 
@@ -101,7 +102,9 @@ Completed: 2026-01-23
 - [x] Labor hours input
 - [x] Materials list with add/remove
 - [x] Final price input
-- [x] Signature capture placeholder
+- [x] Signature capture with react-native-signature-canvas
+- [x] Voice note recording with expo-av
+- [x] Offline queue support for poor connectivity
 - [x] Submit button with validation
 
 ---
@@ -130,7 +133,12 @@ Completed: 2026-01-23
 
 ### Frontend
 - `frontend/services/techApi.ts`
+- `frontend/services/notifications.ts` - Push notification service
 - `frontend/contexts/TechContext.tsx`
+- `frontend/hooks/useOfflineQueue.ts` - Offline request queue management
+- `frontend/components/tech/SignaturePad.tsx` - Signature capture component
+- `frontend/components/tech/VoiceRecorder.tsx` - Voice note recording component
+- `frontend/components/tech/JobChecklist.tsx` - Job checklist with templates
 - `frontend/app/(tech)/_layout.tsx`
 - `frontend/app/(tech)/index.tsx`
 - `frontend/app/(tech)/jobs.tsx`
@@ -176,6 +184,26 @@ Completed: 2026-01-23
 - Route polyline connecting stops
 - Stop list for quick navigation
 - Optimization indicator
+
+### Job Completion
+- Photo capture from camera and gallery
+- Voice note recording (up to 2 minutes)
+- Customer signature capture with react-native-signature-canvas
+- Job checklist with default templates by service type
+- Materials and labor tracking
+- Offline queue for poor connectivity
+
+### Offline Support
+- Request queue with AsyncStorage persistence
+- Auto-retry when connectivity restored
+- Network status monitoring
+- Visual indicator for offline mode
+
+### Push Notifications
+- Expo push token registration
+- Android notification channels (default, jobs)
+- In-app notification handling
+- Notification tap navigation
 
 ---
 
@@ -223,6 +251,7 @@ Completed: 2026-01-23
 ---
 
 ## Test Coverage
-- 63 tests passing (Phase 2 + Phase 3)
-- Tech mobile endpoints use existing tested patterns
+- 97 tests passing (Phase 2: 32 + Phase 3: 31 + Phase 4: 34)
+- Tech mobile endpoints fully tested
 - Frontend components follow established patterns
+- All job workflow endpoints tested
