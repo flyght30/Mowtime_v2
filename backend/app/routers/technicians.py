@@ -280,6 +280,22 @@ async def update_tech_status(
     return SingleResponse(data=TechnicianResponse(**result))
 
 
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate distance between two points in miles"""
+    from math import radians, sin, cos, sqrt, atan2
+    R = 3959  # Earth's radius in miles
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    return R * c
+
+
+# Geofence radius in miles (approximately 150 meters)
+GEOFENCE_RADIUS_MILES = 0.093
+
+
 @router.post(
     "/{tech_id}/location",
     response_model=MessageResponse,
@@ -294,7 +310,7 @@ async def update_tech_location(
     ctx: BusinessContext = Depends(get_business_context),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
-    """Update technician GPS location"""
+    """Update technician GPS location with geofence auto-arrival detection"""
     ts = timestamp or utc_now()
 
     location_data = {
@@ -304,22 +320,73 @@ async def update_tech_location(
         "accuracy": accuracy
     }
 
-    # Update current location
-    result = await db.technicians.update_one(
-        ctx.filter_query({"tech_id": tech_id, "deleted_at": None}),
-        {
-            "$set": {
-                "location": location_data,
-                "updated_at": utc_now()
-            }
-        }
+    # Get current tech data first
+    tech = await db.technicians.find_one(
+        ctx.filter_query({"tech_id": tech_id, "deleted_at": None})
     )
 
-    if result.modified_count == 0:
+    if not tech:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "TECH_NOT_FOUND", "message": "Technician not found"}
         )
+
+    update_data = {
+        "location": location_data,
+        "updated_at": utc_now()
+    }
+
+    # Geofence auto-arrival detection
+    geofence_triggered = False
+    current_status = tech.get("status")
+
+    # Only check geofence if tech is enroute
+    if current_status == TechStatus.ENROUTE.value and tech.get("current_job_id"):
+        # Get the current job location
+        job = await db.hvac_quotes.find_one({
+            "quote_id": tech["current_job_id"],
+            "deleted_at": None
+        })
+
+        if job and job.get("location"):
+            job_loc = job["location"]
+            job_lat = job_loc.get("lat", 0)
+            job_lng = job_loc.get("lng", 0)
+
+            # Calculate distance to job
+            distance = haversine_distance(lat, lng, job_lat, job_lng)
+
+            # Check if within geofence
+            if distance <= GEOFENCE_RADIUS_MILES:
+                geofence_triggered = True
+                update_data["status"] = TechStatus.ON_SITE.value
+
+                # Update schedule entry status
+                await db.schedule_entries.update_one(
+                    {
+                        "job_id": tech["current_job_id"],
+                        "tech_id": tech_id,
+                        "status": "scheduled",
+                        "deleted_at": None
+                    },
+                    {"$set": {
+                        "status": "in_progress",
+                        "started_at": utc_now(),
+                        "updated_at": utc_now()
+                    }}
+                )
+
+                # Update job status
+                await db.hvac_quotes.update_one(
+                    {"quote_id": tech["current_job_id"]},
+                    {"$set": {"status": "in_progress", "updated_at": utc_now()}}
+                )
+
+    # Update tech location (and status if geofence triggered)
+    await db.technicians.update_one(
+        {"tech_id": tech_id},
+        {"$set": update_data}
+    )
 
     # Store in location history (for tracking/replay)
     history_entry = {
@@ -327,11 +394,16 @@ async def update_tech_location(
         "business_id": ctx.business_id,
         "location": {"type": "Point", "coordinates": [lng, lat]},
         "accuracy": accuracy,
-        "timestamp": ts
+        "timestamp": ts,
+        "geofence_triggered": geofence_triggered
     }
     await db.tech_locations.insert_one(history_entry)
 
-    return MessageResponse(message="Location updated")
+    message = "Location updated"
+    if geofence_triggered:
+        message = "Location updated - auto-arrived at job site"
+
+    return MessageResponse(message=message)
 
 
 @router.get(

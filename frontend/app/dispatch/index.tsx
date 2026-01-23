@@ -27,6 +27,10 @@ import {
   TechStatus,
   TechSuggestion,
 } from '../../services/dispatchApi';
+import { useDispatchWebSocket } from '../../hooks/useDispatchWebSocket';
+import DatePickerModal from '../../components/dispatch/DatePickerModal';
+import RouteView from '../../components/dispatch/RouteView';
+import { useAuth } from '../../contexts/AuthContext';
 
 const STATUS_COLORS: Record<TechStatus, string> = {
   available: Colors.success,
@@ -40,6 +44,7 @@ const STATUS_COLORS: Record<TechStatus, string> = {
 type ViewMode = 'day' | 'week';
 
 export default function DispatchBoardScreen() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [unassignedJobs, setUnassignedJobs] = useState<DispatchJob[]>([]);
@@ -56,7 +61,48 @@ export default function DispatchBoardScreen() {
   const [suggestions, setSuggestions] = useState<TechSuggestion[]>([]);
   const [assignLoading, setAssignLoading] = useState(false);
 
+  // Date picker state
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
+
+  // Route view state
+  const [routeViewVisible, setRouteViewVisible] = useState(false);
+  const [selectedTech, setSelectedTech] = useState<Technician | null>(null);
+
+  // WebSocket connection status
+  const [wsConnected, setWsConnected] = useState(false);
+
   const today = new Date().toISOString().split('T')[0];
+  const businessId = user?.business_id || '';
+
+  // WebSocket for real-time updates
+  const { connected, reconnecting } = useDispatchWebSocket({
+    businessId,
+    onTechLocation: (data) => {
+      // Update tech location in real-time
+      setTechnicians(prev => prev.map(t =>
+        t.tech_id === data.tech_id
+          ? { ...t, location: { ...t.location, coordinates: [data.longitude, data.latitude] } as any, status: data.status as TechStatus }
+          : t
+      ));
+    },
+    onTechStatus: (data) => {
+      // Update tech status in real-time
+      setTechnicians(prev => prev.map(t =>
+        t.tech_id === data.tech_id
+          ? { ...t, status: data.status as TechStatus, current_job_id: data.job_id || t.current_job_id }
+          : t
+      ));
+    },
+    onJobAssigned: () => {
+      // Refresh data when job is assigned
+      loadData();
+    },
+    onJobStatus: () => {
+      // Refresh data when job status changes
+      loadData();
+    },
+    onConnectionChange: setWsConnected,
+  });
 
   // Get week dates
   const getWeekDates = (date: Date) => {
@@ -194,8 +240,64 @@ export default function DispatchBoardScreen() {
     </TouchableOpacity>
   );
 
+  const handleTechPress = (tech: Technician) => {
+    setSelectedTech(tech);
+    setRouteViewVisible(true);
+  };
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    setDatePickerVisible(false);
+  };
+
+  const handleDragJobToTech = (job: DispatchJob, techId: string) => {
+    // Show assign modal with pre-selected tech
+    setSelectedJob(job);
+    setAssignModalVisible(true);
+    // Pre-load suggestions (selected tech should be at top)
+    loadSuggestionsWithPreference(job, techId);
+  };
+
+  const loadSuggestionsWithPreference = async (job: DispatchJob, preferredTechId?: string) => {
+    setAssignLoading(true);
+    try {
+      const response = await dispatchApi.suggestTech(job.id, today);
+      if (response.success && response.data) {
+        let sortedSuggestions = response.data.suggestions;
+        if (preferredTechId) {
+          // Move preferred tech to top
+          sortedSuggestions = sortedSuggestions.sort((a, b) => {
+            if (a.tech_id === preferredTechId) return -1;
+            if (b.tech_id === preferredTechId) return 1;
+            return b.score - a.score;
+          });
+        }
+        setSuggestions(sortedSuggestions);
+      }
+    } catch (err) {
+      console.error('Failed to get suggestions');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
   const renderTechCard = (tech: Technician) => (
-    <View key={tech.tech_id} style={styles.techCard}>
+    <TouchableOpacity
+      key={tech.tech_id}
+      style={styles.techCard}
+      onPress={() => handleTechPress(tech)}
+      onLongPress={() => {
+        // Long press shows quick actions
+        Alert.alert(
+          `${tech.first_name} ${tech.last_name}`,
+          `Status: ${tech.status.replace('_', ' ')}`,
+          [
+            { text: 'View Route', onPress: () => handleTechPress(tech) },
+            { text: 'Cancel', style: 'cancel' },
+          ]
+        );
+      }}
+    >
       <View style={[styles.techStatus, { backgroundColor: STATUS_COLORS[tech.status] }]} />
       <View style={[styles.techAvatar, { backgroundColor: tech.color }]}>
         <Text style={styles.techAvatarText}>{tech.first_name[0]}{tech.last_name[0]}</Text>
@@ -207,7 +309,7 @@ export default function DispatchBoardScreen() {
       {tech.current_job_id && (
         <Ionicons name="briefcase" size={16} color={Colors.primary} />
       )}
-    </View>
+    </TouchableOpacity>
   );
 
   if (loading) {
@@ -306,10 +408,33 @@ export default function DispatchBoardScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Connection Status Indicator */}
+      {reconnecting && (
+        <View style={styles.reconnectingBar}>
+          <ActivityIndicator size="small" color={Colors.white} />
+          <Text style={styles.reconnectingText}>Reconnecting...</Text>
+        </View>
+      )}
+
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[Colors.primary]} />}
         contentContainerStyle={styles.content}
       >
+        {/* Date Selection Header */}
+        <View style={styles.dateHeader}>
+          <TouchableOpacity style={styles.dateButton} onPress={() => setDatePickerVisible(true)}>
+            <Ionicons name="calendar" size={20} color={Colors.primary} />
+            <Text style={styles.dateButtonText}>
+              {selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
+          </TouchableOpacity>
+          <View style={styles.connectionStatus}>
+            <View style={[styles.connectionDot, { backgroundColor: connected ? Colors.success : Colors.gray400 }]} />
+            <Text style={styles.connectionText}>{connected ? 'Live' : 'Offline'}</Text>
+          </View>
+        </View>
+
         {/* View Mode Toggle */}
         <View style={styles.viewToggle}>
           <TouchableOpacity
@@ -474,6 +599,29 @@ export default function DispatchBoardScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Date Picker Modal */}
+      <DatePickerModal
+        visible={datePickerVisible}
+        selectedDate={selectedDate}
+        onSelect={handleDateSelect}
+        onClose={() => setDatePickerVisible(false)}
+      />
+
+      {/* Route View Modal */}
+      {selectedTech && (
+        <RouteView
+          visible={routeViewVisible}
+          techId={selectedTech.tech_id}
+          techName={`${selectedTech.first_name} ${selectedTech.last_name}`}
+          date={selectedDate.toISOString().split('T')[0]}
+          onClose={() => {
+            setRouteViewVisible(false);
+            setSelectedTech(null);
+          }}
+          onRefresh={loadData}
+        />
+      )}
     </View>
   );
 }
@@ -485,6 +633,54 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.md,
+  },
+  reconnectingBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.warning,
+    padding: Spacing.xs,
+    gap: Spacing.xs,
+  },
+  reconnectingText: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.white,
+    fontWeight: Typography.fontWeight.medium,
+  },
+  dateHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.xs,
+    ...Shadows.sm,
+  },
+  dateButtonText: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.text,
+  },
+  connectionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  connectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  connectionText: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
   },
   loadingContainer: {
     flex: 1,

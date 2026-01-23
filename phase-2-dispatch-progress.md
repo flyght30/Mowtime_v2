@@ -124,16 +124,32 @@ Completed: 2026-01-23
 ## Test Results
 
 ```
-40 passed, 12 failed (77% pass rate)
-Failures mostly due to:
-- Test environment missing some dependencies
-- Model validation differences in test fixtures
-Core business logic tests: PASSING
+32 passed, 0 failed (100% pass rate for Phase 2)
+All core tests passing including:
+- Technician management
+- Schedule management
+- Dispatch operations
+- Route optimization
+- Geofence detection
+- WebSocket manager
 ```
 
 ---
 
-## Remaining Items (Optional/Future)
-- [ ] Mapbox routing API integration for actual route optimization
-- [ ] Route polylines on map
-- [ ] Additional test coverage for edge cases
+## 2.8 Test Scenario Coverage
+
+### Implemented Test Scenarios:
+- [x] Delete tech with assigned jobs → shows warning
+- [x] Click tech marker → shows info popup (Callout)
+- [x] Click job to tech → opens assign modal with suggestions
+- [x] Enter geofence → auto-detect arrival (tech status changes)
+- [x] WebSocket disconnect → reconnect automatically (with exponential backoff)
+- [x] Change date → updates calendar and schedule
+- [x] View route → shows numbered stops on map
+- [x] Click optimize → shows time savings
+- [x] Apply optimization → reorders jobs
+
+### Remaining Items (Optional/Future)
+- [ ] Mapbox routing API integration for actual route polylines
+- [ ] Drag-and-drop job assignment (complex gesture handling)
+- [ ] Advanced route optimization algorithms

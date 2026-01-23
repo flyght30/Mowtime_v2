@@ -489,6 +489,96 @@ async def update_entry_status(
     return SingleResponse(data=ScheduleEntryResponse(**result))
 
 
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate distance between two points in miles"""
+    from math import radians, sin, cos, sqrt, atan2
+    R = 3959  # Earth's radius in miles
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    return R * c
+
+
+def estimate_drive_time(distance_miles: float) -> int:
+    """Estimate drive time in minutes (assumes ~30 mph average)"""
+    return int(distance_miles * 2)
+
+
+def optimize_route_nearest_neighbor(entries: list, job_map: dict, start_location: dict = None) -> tuple:
+    """
+    Optimize route using nearest neighbor algorithm.
+    Returns (optimized_order, stops, original_drive_time, optimized_drive_time)
+    """
+    if len(entries) < 2:
+        return [e["job_id"] for e in entries], [], 0, 0
+
+    # Build list with locations
+    entries_with_loc = []
+    for entry in entries:
+        job = job_map.get(entry["job_id"], {})
+        location = job.get("location")
+        entries_with_loc.append({
+            "entry": entry,
+            "job": job,
+            "location": location
+        })
+
+    # Calculate original drive time
+    original_drive_time = 0
+    prev_loc = start_location
+    for item in entries_with_loc:
+        if prev_loc and item["location"]:
+            dist = haversine_distance(
+                prev_loc.get("lat", 0), prev_loc.get("lng", 0),
+                item["location"].get("lat", 0), item["location"].get("lng", 0)
+            )
+            original_drive_time += estimate_drive_time(dist)
+        prev_loc = item["location"]
+
+    # Nearest neighbor optimization
+    unvisited = entries_with_loc.copy()
+    optimized = []
+    current_loc = start_location
+
+    while unvisited:
+        if not current_loc:
+            # Take first unvisited if no current location
+            nearest = unvisited.pop(0)
+        else:
+            # Find nearest unvisited
+            min_dist = float('inf')
+            nearest_idx = 0
+            for i, item in enumerate(unvisited):
+                if item["location"]:
+                    dist = haversine_distance(
+                        current_loc.get("lat", 0), current_loc.get("lng", 0),
+                        item["location"].get("lat", 0), item["location"].get("lng", 0)
+                    )
+                    if dist < min_dist:
+                        min_dist = dist
+                        nearest_idx = i
+            nearest = unvisited.pop(nearest_idx)
+
+        optimized.append(nearest)
+        current_loc = nearest["location"]
+
+    # Calculate optimized drive time
+    optimized_drive_time = 0
+    prev_loc = start_location
+    for item in optimized:
+        if prev_loc and item["location"]:
+            dist = haversine_distance(
+                prev_loc.get("lat", 0), prev_loc.get("lng", 0),
+                item["location"].get("lat", 0), item["location"].get("lng", 0)
+            )
+            optimized_drive_time += estimate_drive_time(dist)
+        prev_loc = item["location"]
+
+    return optimized, original_drive_time, optimized_drive_time
+
+
 @router.post(
     "/optimize",
     summary="Optimize technician's route"
@@ -526,39 +616,194 @@ async def optimize_route(
 
     job_map = {j["quote_id"]: j for j in jobs}
 
+    # Get tech's current location as starting point
+    tech = await db.technicians.find_one({"tech_id": data.tech_id})
+    start_location = None
+    if tech and tech.get("location", {}).get("coordinates"):
+        coords = tech["location"]["coordinates"]
+        start_location = {"lat": coords[1], "lng": coords[0]}
+
     original_order = [e["job_id"] for e in entries]
 
-    # Simple optimization: sort by scheduled time (for now)
-    # In production, this would call Mapbox Optimization API
-    # For now, just return the current order as "optimized"
-    stops = []
-    current_time = entries[0]["start_time"] if entries else "08:00"
+    # Run optimization
+    optimized_items, original_drive_time, optimized_drive_time = optimize_route_nearest_neighbor(
+        entries, job_map, start_location
+    )
 
-    for i, entry in enumerate(entries):
-        job = job_map.get(entry["job_id"], {})
+    time_saved = max(0, original_drive_time - optimized_drive_time)
+    optimized_order = [item["entry"]["job_id"] for item in optimized_items]
+
+    # Build stops with new times
+    stops = []
+    current_time_minutes = time_to_minutes(entries[0]["start_time"]) if entries else 480
+    prev_location = start_location
+
+    for i, item in enumerate(optimized_items):
+        entry = item["entry"]
+        job = item["job"]
+        location = item["location"]
         client_data = job.get("client", {})
         address = client_data.get("address", "Unknown address")
+
+        # Calculate travel time from previous
+        travel_time = 0
+        if prev_location and location:
+            dist = haversine_distance(
+                prev_location.get("lat", 0), prev_location.get("lng", 0),
+                location.get("lat", 0), location.get("lng", 0)
+            )
+            travel_time = estimate_drive_time(dist)
+
+        if i > 0:
+            current_time_minutes += travel_time
+
+        arrival_h = current_time_minutes // 60
+        arrival_m = current_time_minutes % 60
+        arrival_time = f"{arrival_h:02d}:{arrival_m:02d}"
+
+        duration_minutes = int(entry.get("estimated_hours", 2) * 60)
+        departure_minutes = current_time_minutes + duration_minutes
+        departure_h = departure_minutes // 60
+        departure_m = departure_minutes % 60
+        departure_time = f"{departure_h:02d}:{departure_m:02d}"
 
         stops.append(RouteStop(
             order=i + 1,
             job_id=entry["job_id"],
             address=address,
-            location=job.get("location"),
-            arrival_time=entry["start_time"],
-            departure_time=entry["end_time"],
-            travel_from_previous=15 if i > 0 else 0  # Placeholder
+            location=location,
+            arrival_time=arrival_time,
+            departure_time=departure_time,
+            travel_from_previous=travel_time
         ).model_dump())
 
-        current_time = entry["end_time"]
+        current_time_minutes = departure_minutes
+        prev_location = location
 
     response = OptimizeRouteResponse(
         tech_id=data.tech_id,
         date=data.date,
         original_order=original_order,
-        optimized_order=original_order,  # Same for now
+        optimized_order=optimized_order,
         stops=stops,
-        time_saved_minutes=0,
-        total_drive_time_minutes=15 * (len(entries) - 1) if len(entries) > 1 else 0
+        time_saved_minutes=time_saved,
+        total_drive_time_minutes=optimized_drive_time
     )
 
     return {"success": True, "data": response.model_dump()}
+
+
+@router.post(
+    "/optimize/apply",
+    summary="Apply optimized route order"
+)
+async def apply_optimized_route(
+    data: OptimizeRouteRequest,
+    optimized_order: list[str] = None,
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Apply the optimized route order to schedule entries"""
+    if not optimized_order:
+        # Re-run optimization to get the order
+        response = await optimize_route(data, ctx, db)
+        if not response.get("success"):
+            return response
+        optimized_order = response["data"].get("optimized_order", [])
+
+    if len(optimized_order) < 2:
+        return {
+            "success": True,
+            "data": {"message": "Not enough jobs to reorder"}
+        }
+
+    # Update order for each entry
+    updated_entries = []
+    base_time_minutes = 480  # 8:00 AM
+    current_time = base_time_minutes
+
+    # Get job details for time calculations
+    jobs = await db.hvac_quotes.find({
+        "quote_id": {"$in": optimized_order}
+    }).to_list(length=20)
+    job_map = {j["quote_id"]: j for j in jobs}
+
+    prev_location = None
+
+    for i, job_id in enumerate(optimized_order):
+        job = job_map.get(job_id, {})
+        location = job.get("location")
+
+        # Calculate travel time
+        travel_time = 0
+        if prev_location and location:
+            dist = haversine_distance(
+                prev_location.get("lat", 0), prev_location.get("lng", 0),
+                location.get("lat", 0), location.get("lng", 0)
+            )
+            travel_time = estimate_drive_time(dist)
+
+        if i > 0:
+            current_time += travel_time
+
+        start_h = current_time // 60
+        start_m = current_time % 60
+        start_time = f"{start_h:02d}:{start_m:02d}"
+
+        # Get entry to find estimated hours
+        entry = await db.schedule_entries.find_one({
+            "job_id": job_id,
+            "scheduled_date": data.date.isoformat(),
+            "deleted_at": None
+        })
+
+        estimated_hours = entry.get("estimated_hours", 2) if entry else 2
+        end_time = calculate_end_time(start_time, estimated_hours)
+
+        # Update the entry
+        result = await db.schedule_entries.find_one_and_update(
+            ctx.filter_query({
+                "job_id": job_id,
+                "scheduled_date": data.date.isoformat(),
+                "deleted_at": None
+            }),
+            {"$set": {
+                "order": i + 1,
+                "start_time": start_time,
+                "end_time": end_time,
+                "updated_at": utc_now()
+            }},
+            return_document=True
+        )
+
+        if result:
+            updated_entries.append({
+                "entry_id": result["entry_id"],
+                "job_id": job_id,
+                "order": i + 1,
+                "start_time": start_time,
+                "end_time": end_time
+            })
+
+            # Also update job schedule
+            await db.hvac_quotes.update_one(
+                {"quote_id": job_id},
+                {"$set": {
+                    "schedule.scheduled_time_start": start_time,
+                    "schedule.scheduled_time_end": end_time,
+                    "updated_at": utc_now()
+                }}
+            )
+
+        # Update for next iteration
+        end_minutes = time_to_minutes(end_time)
+        current_time = end_minutes
+        prev_location = location
+
+    return {
+        "success": True,
+        "data": {
+            "message": f"Applied optimized route with {len(updated_entries)} stops",
+            "updated_entries": updated_entries
+        }
+    }

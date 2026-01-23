@@ -335,7 +335,7 @@ export const scheduleApi = {
   },
 
   // Optimize route
-  optimize: async (techId: string, date: string): Promise<ApiResponse<{
+  optimize: async (params: { tech_id: string; date: string }): Promise<ApiResponse<{
     tech_id: string;
     date: string;
     original_order: string[];
@@ -344,7 +344,25 @@ export const scheduleApi = {
     time_saved_minutes: number;
     total_drive_time_minutes: number;
   }>> => {
-    return api.post('/schedule/optimize', { tech_id: techId, date });
+    return api.post('/schedule/optimize', { tech_id: params.tech_id, date: params.date });
+  },
+
+  // Apply optimized route
+  applyOptimization: async (params: {
+    tech_id: string;
+    date: string;
+    optimized_order: string[];
+  }): Promise<ApiResponse<{
+    message: string;
+    updated_entries: any[];
+  }>> => {
+    const query = new URLSearchParams({
+      optimized_order: JSON.stringify(params.optimized_order),
+    });
+    return api.post(`/schedule/optimize/apply?${query.toString()}`, {
+      tech_id: params.tech_id,
+      date: params.date,
+    });
   },
 };
 
