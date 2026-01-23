@@ -81,7 +81,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [currentDemoBusiness, setCurrentDemoBusiness] = useState<DemoBusinessType | null>(null);
   const { setActiveVertical, enableVertical, disableVertical } = useVerticalContext();
-  const { refreshBranding } = useBranding();
+  const { refresh } = useBranding();
 
   const availableDemoBusinesses: DemoBusinessType[] = ['lawn_care', 'hvac', 'multi_vertical'];
 
@@ -124,10 +124,10 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     await setActiveVertical(business.vertical);
 
     // Refresh branding (in real app, API would return demo business branding)
-    await refreshBranding();
+    await refresh();
 
     console.log('[Demo] Switched to:', business.name, 'with verticals:', business.enabledVerticals);
-  }, [setActiveVertical, enableVertical, disableVertical, refreshBranding]);
+  }, [setActiveVertical, enableVertical, disableVertical, refresh]);
 
   return (
     <DemoContext.Provider
