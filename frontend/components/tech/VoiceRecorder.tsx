@@ -1,9 +1,9 @@
 /**
  * VoiceRecorder Component
- * Records audio notes for job completion
+ * Records audio notes for job completion with AI transcription and summarization
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,20 +11,36 @@ import {
   TouchableOpacity,
   Animated,
   Alert,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
+import { techApi } from '../../services/techApi';
 
 interface VoiceRecorderProps {
-  onRecordingComplete: (uri: string, duration: number) => void;
+  jobId: string;
+  appointmentId?: string;
+  onSummaryApproved?: (summary: string) => void;
   maxDuration?: number; // seconds
 }
 
-type RecordingState = 'idle' | 'recording' | 'recorded' | 'playing';
+type RecordingState = 'idle' | 'recording' | 'recorded' | 'playing' | 'uploading' | 'processing' | 'ready' | 'editing';
+
+interface VoiceNoteData {
+  voice_note_id: string;
+  status: 'uploaded' | 'transcribing' | 'summarizing' | 'complete' | 'failed';
+  transcription?: string;
+  summary?: string;
+  summary_edited?: string;
+  error_message?: string;
+}
 
 export default function VoiceRecorder({
-  onRecordingComplete,
+  jobId,
+  appointmentId,
+  onSummaryApproved,
   maxDuration = 120, // 2 minutes default
 }: VoiceRecorderProps) {
   const [state, setState] = useState<RecordingState>('idle');
@@ -33,6 +49,11 @@ export default function VoiceRecorder({
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
   const [playbackPosition, setPlaybackPosition] = useState(0);
+
+  // Voice note data from backend
+  const [voiceNote, setVoiceNote] = useState<VoiceNoteData | null>(null);
+  const [editedSummary, setEditedSummary] = useState('');
+  const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -49,8 +70,11 @@ export default function VoiceRecorder({
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
     };
-  }, [recording, sound]);
+  }, [recording, sound, pollInterval]);
 
   // Pulse animation while recording
   useEffect(() => {
@@ -143,13 +167,74 @@ export default function VoiceRecorder({
       setRecording(null);
       setRecordingUri(uri);
       setState('recorded');
-
-      if (uri) {
-        onRecordingComplete(uri, duration);
-      }
     } catch (error) {
       console.error('Failed to stop recording:', error);
     }
+  };
+
+  const uploadRecording = async () => {
+    if (!recordingUri) return;
+
+    setState('uploading');
+
+    try {
+      // Create form data
+      const formData = new FormData();
+      formData.append('file', {
+        uri: recordingUri,
+        type: 'audio/m4a',
+        name: 'voice_note.m4a',
+      } as any);
+      formData.append('job_id', jobId);
+      if (appointmentId) {
+        formData.append('appointment_id', appointmentId);
+      }
+      formData.append('duration_seconds', duration.toString());
+
+      // Upload to backend
+      const response = await techApi.post('/voice-notes/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const noteData = response.data.data;
+      setVoiceNote(noteData);
+      setState('processing');
+
+      // Start polling for status
+      startPolling(noteData.voice_note_id);
+    } catch (error: any) {
+      console.error('Failed to upload recording:', error);
+      Alert.alert('Upload Failed', error.message || 'Failed to upload voice note');
+      setState('recorded');
+    }
+  };
+
+  const startPolling = (noteId: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const response = await techApi.get(`/voice-notes/${noteId}`);
+        const noteData = response.data.data;
+        setVoiceNote(noteData);
+
+        if (noteData.status === 'complete') {
+          clearInterval(interval);
+          setPollInterval(null);
+          setEditedSummary(noteData.summary || '');
+          setState('ready');
+        } else if (noteData.status === 'failed') {
+          clearInterval(interval);
+          setPollInterval(null);
+          Alert.alert('Processing Failed', noteData.error_message || 'Voice note processing failed');
+          setState('recorded');
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    setPollInterval(interval);
   };
 
   const playRecording = async () => {
@@ -178,7 +263,7 @@ export default function VoiceRecorder({
 
     try {
       await sound.stopAsync();
-      setState('recorded');
+      setState(voiceNote?.status === 'complete' ? 'ready' : 'recorded');
       setPlaybackPosition(0);
     } catch (error) {
       console.error('Failed to stop playback:', error);
@@ -189,7 +274,7 @@ export default function VoiceRecorder({
     if (status.isLoaded) {
       setPlaybackPosition(status.positionMillis / 1000);
       if (status.didJustFinish) {
-        setState('recorded');
+        setState(voiceNote?.status === 'complete' ? 'ready' : 'recorded');
         setPlaybackPosition(0);
       }
     }
@@ -209,8 +294,14 @@ export default function VoiceRecorder({
               sound.unloadAsync();
               setSound(null);
             }
+            if (pollInterval) {
+              clearInterval(pollInterval);
+              setPollInterval(null);
+            }
             setRecordingUri(null);
+            setVoiceNote(null);
             setDuration(0);
+            setEditedSummary('');
             setState('idle');
           },
         },
@@ -218,8 +309,55 @@ export default function VoiceRecorder({
     );
   };
 
+  const approveSummary = async () => {
+    if (!voiceNote) return;
+
+    try {
+      const response = await techApi.post(
+        `/voice-notes/${voiceNote.voice_note_id}/approve`,
+        null,
+        {
+          params: {
+            edited_summary: editedSummary !== voiceNote.summary ? editedSummary : undefined,
+          },
+        }
+      );
+
+      Alert.alert('Success', 'Voice note summary saved to job');
+
+      if (onSummaryApproved) {
+        onSummaryApproved(editedSummary);
+      }
+
+      // Reset to idle state
+      setRecordingUri(null);
+      setVoiceNote(null);
+      setDuration(0);
+      setEditedSummary('');
+      setState('idle');
+    } catch (error: any) {
+      console.error('Failed to approve summary:', error);
+      Alert.alert('Error', error.message || 'Failed to save summary');
+    }
+  };
+
+  const getProcessingMessage = () => {
+    if (!voiceNote) return 'Uploading...';
+    switch (voiceNote.status) {
+      case 'uploaded':
+        return 'Preparing...';
+      case 'transcribing':
+        return 'Transcribing audio...';
+      case 'summarizing':
+        return 'Creating summary...';
+      default:
+        return 'Processing...';
+    }
+  };
+
   return (
     <View style={styles.container}>
+      {/* Idle State - Record Button */}
       {state === 'idle' && (
         <TouchableOpacity
           style={styles.recordButton}
@@ -235,6 +373,7 @@ export default function VoiceRecorder({
         </TouchableOpacity>
       )}
 
+      {/* Recording State */}
       {state === 'recording' && (
         <View style={styles.recordingContainer}>
           <View style={styles.recordingHeader}>
@@ -275,7 +414,8 @@ export default function VoiceRecorder({
         </View>
       )}
 
-      {(state === 'recorded' || state === 'playing') && (
+      {/* Recorded State - Ready to Upload */}
+      {state === 'recorded' && (
         <View style={styles.recordedContainer}>
           <View style={styles.recordedHeader}>
             <Ionicons name="mic" size={20} color={Colors.success} />
@@ -323,6 +463,104 @@ export default function VoiceRecorder({
                 Delete
               </Text>
             </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={styles.uploadButton}
+            onPress={uploadRecording}
+          >
+            <Ionicons name="cloud-upload" size={20} color={Colors.white} />
+            <Text style={styles.uploadButtonText}>Process with AI</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Uploading/Processing State */}
+      {(state === 'uploading' || state === 'processing') && (
+        <View style={styles.processingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.processingText}>{getProcessingMessage()}</Text>
+          <Text style={styles.processingSubtext}>
+            {state === 'processing' ? 'This usually takes 10-20 seconds' : 'Uploading audio...'}
+          </Text>
+        </View>
+      )}
+
+      {/* Ready State - Summary Available */}
+      {(state === 'ready' || state === 'editing') && voiceNote && (
+        <View style={styles.summaryContainer}>
+          <View style={styles.summaryHeader}>
+            <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+            <Text style={styles.summaryTitle}>AI Summary Ready</Text>
+          </View>
+
+          {/* Original transcription (collapsible) */}
+          {voiceNote.transcription && (
+            <View style={styles.transcriptionSection}>
+              <Text style={styles.sectionLabel}>Original Recording:</Text>
+              <Text style={styles.transcriptionText} numberOfLines={3}>
+                "{voiceNote.transcription}"
+              </Text>
+            </View>
+          )}
+
+          {/* Editable summary */}
+          <View style={styles.summarySection}>
+            <Text style={styles.sectionLabel}>Professional Summary:</Text>
+            {state === 'editing' ? (
+              <TextInput
+                style={styles.summaryInput}
+                value={editedSummary}
+                onChangeText={setEditedSummary}
+                multiline
+                textAlignVertical="top"
+                placeholder="Edit the summary..."
+              />
+            ) : (
+              <TouchableOpacity onPress={() => setState('editing')}>
+                <Text style={styles.summaryText}>{editedSummary}</Text>
+                <Text style={styles.editHint}>Tap to edit</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Action buttons */}
+          <View style={styles.actionButtons}>
+            {state === 'editing' ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.cancelButton]}
+                  onPress={() => {
+                    setEditedSummary(voiceNote.summary || '');
+                    setState('ready');
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.saveButton]}
+                  onPress={() => setState('ready')}
+                >
+                  <Text style={styles.saveButtonText}>Done Editing</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.deleteActionButton]}
+                  onPress={deleteRecording}
+                >
+                  <Ionicons name="trash-outline" size={18} color={Colors.error} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.approveButton]}
+                  onPress={approveSummary}
+                >
+                  <Ionicons name="checkmark" size={20} color={Colors.white} />
+                  <Text style={styles.approveButtonText}>Use This Summary</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       )}
@@ -469,6 +707,7 @@ const styles = StyleSheet.create({
   controlButtons: {
     flexDirection: 'row',
     gap: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   controlButton: {
     flex: 1,
@@ -492,5 +731,140 @@ const styles = StyleSheet.create({
   },
   deleteText: {
     color: Colors.error,
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.primary,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  uploadButtonText: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.white,
+  },
+  processingContainer: {
+    backgroundColor: Colors.gray100,
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+  },
+  processingText: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.text,
+    marginTop: Spacing.md,
+  },
+  processingSubtext: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: Spacing.xs,
+  },
+  summaryContainer: {
+    backgroundColor: Colors.primary + '08',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.primary + '20',
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  summaryTitle: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.success,
+    marginLeft: Spacing.sm,
+  },
+  transcriptionSection: {
+    marginBottom: Spacing.md,
+    padding: Spacing.sm,
+    backgroundColor: Colors.gray100,
+    borderRadius: BorderRadius.sm,
+  },
+  sectionLabel: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
+    textTransform: 'uppercase',
+  },
+  transcriptionText: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  summarySection: {
+    marginBottom: Spacing.md,
+  },
+  summaryText: {
+    fontSize: Typography.fontSize.base,
+    color: Colors.text,
+    lineHeight: 22,
+  },
+  summaryInput: {
+    fontSize: Typography.fontSize.base,
+    color: Colors.text,
+    lineHeight: 22,
+    backgroundColor: Colors.white,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    minHeight: 100,
+  },
+  editHint: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.primary,
+    marginTop: Spacing.xs,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  deleteActionButton: {
+    backgroundColor: Colors.error + '10',
+    paddingHorizontal: Spacing.md,
+  },
+  approveButton: {
+    flex: 1,
+    backgroundColor: Colors.success,
+    paddingVertical: Spacing.md,
+  },
+  approveButtonText: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.white,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: Colors.gray200,
+  },
+  cancelButtonText: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.text,
+  },
+  saveButton: {
+    flex: 1,
+    backgroundColor: Colors.primary,
+  },
+  saveButtonText: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.white,
   },
 });

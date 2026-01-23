@@ -170,6 +170,89 @@ async def get_map_data(
     }
 
 
+async def get_tech_performance(db, tech_id: str, business_id: str, job_type: str = None) -> dict:
+    """Get technician performance metrics"""
+    from datetime import timedelta
+
+    ninety_days_ago = (datetime.now() - timedelta(days=90)).isoformat()
+
+    # Build query for completed jobs
+    query = {
+        "business_id": business_id,
+        "schedule.tech_id": tech_id,
+        "status": "completed",
+        "deleted_at": None,
+        "created_at": {"$gte": ninety_days_ago}
+    }
+
+    if job_type:
+        query["job_type"] = job_type
+
+    # Get completed jobs
+    completed_jobs = await db.hvac_quotes.find(query).to_list(length=100)
+
+    total_jobs = len(completed_jobs)
+    if total_jobs == 0:
+        return {"total_jobs": 0, "on_time_rate": 0.5, "avg_rating": None}
+
+    # Calculate on-time rate
+    on_time = sum(1 for j in completed_jobs if j.get("completed_on_time", True))
+    on_time_rate = on_time / total_jobs
+
+    # Calculate average rating
+    ratings = [j.get("customer_rating") for j in completed_jobs if j.get("customer_rating")]
+    avg_rating = sum(ratings) / len(ratings) if ratings else None
+
+    return {
+        "total_jobs": total_jobs,
+        "on_time_rate": on_time_rate,
+        "avg_rating": avg_rating
+    }
+
+
+async def get_customer_tech_history(db, client_id: str, business_id: str) -> dict:
+    """Get customer's history with specific technicians"""
+    if not client_id:
+        return {"preferred_tech_id": None, "tech_jobs": {}}
+
+    # Get customer's completed jobs with tech assignments
+    jobs = await db.hvac_quotes.find({
+        "business_id": business_id,
+        "client.client_id": client_id,
+        "status": "completed",
+        "schedule.tech_id": {"$exists": True},
+        "deleted_at": None
+    }).sort("created_at", -1).to_list(length=20)
+
+    # Count jobs per tech
+    tech_jobs = {}
+    for job in jobs:
+        tech_id = job.get("schedule", {}).get("tech_id")
+        if tech_id:
+            if tech_id not in tech_jobs:
+                tech_jobs[tech_id] = {"count": 0, "last_job": None, "ratings": []}
+            tech_jobs[tech_id]["count"] += 1
+            if not tech_jobs[tech_id]["last_job"]:
+                tech_jobs[tech_id]["last_job"] = job.get("created_at")
+            if job.get("customer_rating"):
+                tech_jobs[tech_id]["ratings"].append(job["customer_rating"])
+
+    # Find preferred tech (most jobs with good ratings)
+    preferred_tech_id = None
+    max_score = 0
+    for tech_id, data in tech_jobs.items():
+        avg_rating = sum(data["ratings"]) / len(data["ratings"]) if data["ratings"] else 4.0
+        score = data["count"] * avg_rating
+        if score > max_score:
+            max_score = score
+            preferred_tech_id = tech_id
+
+    return {
+        "preferred_tech_id": preferred_tech_id,
+        "tech_jobs": tech_jobs
+    }
+
+
 @router.post(
     "/suggest-tech",
     summary="Suggest best technician for a job"
@@ -180,7 +263,7 @@ async def suggest_technician(
     ctx: BusinessContext = Depends(get_business_context),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
-    """Get ranked technician suggestions for a job"""
+    """Get ranked technician suggestions for a job with AI-powered scoring"""
     # Get job details
     job = await db.hvac_quotes.find_one(ctx.filter_query({
         "quote_id": job_id,
@@ -196,6 +279,7 @@ async def suggest_technician(
     job_location = job.get("location")
     job_type = job.get("job_type", "service")
     estimated_hours = job.get("estimated_hours", 2)
+    client_id = job.get("client", {}).get("client_id")
 
     # Skill requirements based on job type
     required_skill = {
@@ -203,6 +287,10 @@ async def suggest_technician(
         "service": "can_service",
         "maintenance": "can_maintenance"
     }.get(job_type, "can_service")
+
+    # Get customer's tech preference history
+    customer_history = await get_customer_tech_history(db, client_id, ctx.business_id)
+    preferred_tech_id = customer_history.get("preferred_tech_id")
 
     # Get all active technicians
     techs = await db.technicians.find(ctx.filter_query({
@@ -219,7 +307,7 @@ async def suggest_technician(
         score = 50  # Base score
         reasons = []
 
-        # Check skills
+        # Check skills (20% weight)
         skills = tech.get("skills", {})
         if skills.get(required_skill, False):
             score += 20
@@ -228,7 +316,7 @@ async def suggest_technician(
             score -= 30
             reasons.append(f"Not {job_type} certified")
 
-        # Check distance
+        # Check distance (25% weight)
         tech_location = tech.get("location")
         distance_miles = None
         eta_minutes = None
@@ -251,7 +339,7 @@ async def suggest_technician(
                 else:
                     reasons.append(f"{eta_minutes} min away")
 
-        # Check availability for the day
+        # Check availability for the day (15% weight)
         entries = await db.schedule_entries.find({
             "business_id": ctx.business_id,
             "tech_id": tech["tech_id"],
@@ -283,13 +371,48 @@ async def suggest_technician(
             score -= 20
             reasons.append(f"Limited availability ({available_hours:.1f}h)")
 
-        # Current status bonus
+        # Current status bonus (10% weight)
         if tech["status"] == TechStatus.AVAILABLE.value:
             score += 10
             reasons.append("Currently available")
         elif tech["status"] == TechStatus.COMPLETE.value:
             score += 5
             reasons.append("Just finished job")
+
+        # Performance history (15% weight) - NEW
+        performance = await get_tech_performance(db, tech["tech_id"], ctx.business_id, job_type)
+        on_time_rate = performance.get("on_time_rate", 0.5)
+        avg_rating = performance.get("avg_rating")
+        total_jobs = performance.get("total_jobs", 0)
+
+        if total_jobs >= 5:
+            if on_time_rate >= 0.9:
+                score += 10
+                reasons.append(f"{int(on_time_rate * 100)}% on-time rate")
+            elif on_time_rate >= 0.8:
+                score += 5
+            elif on_time_rate < 0.7:
+                score -= 5
+                reasons.append(f"Below avg on-time ({int(on_time_rate * 100)}%)")
+
+            if avg_rating and avg_rating >= 4.5:
+                score += 5
+                reasons.append(f"{avg_rating:.1f} star rating")
+            elif avg_rating and avg_rating < 3.5:
+                score -= 5
+
+        # Customer preference (15% weight) - NEW
+        if preferred_tech_id and tech["tech_id"] == preferred_tech_id:
+            score += 15
+            tech_history = customer_history["tech_jobs"].get(tech["tech_id"], {})
+            job_count = tech_history.get("count", 0)
+            reasons.insert(0, f"Customer's preferred tech ({job_count} previous jobs)")
+        elif client_id and tech["tech_id"] in customer_history.get("tech_jobs", {}):
+            # Not preferred but has worked with customer before
+            tech_history = customer_history["tech_jobs"][tech["tech_id"]]
+            if tech_history["count"] >= 1:
+                score += 5
+                reasons.append(f"Served this customer before")
 
         suggestions.append({
             "tech_id": tech["tech_id"],
@@ -299,7 +422,13 @@ async def suggest_technician(
             "eta_minutes": eta_minutes,
             "distance_miles": round(distance_miles, 1) if distance_miles else None,
             "status": tech["status"],
-            "available_hours": available_hours
+            "available_hours": available_hours,
+            "performance": {
+                "on_time_rate": round(on_time_rate, 2) if total_jobs >= 5 else None,
+                "avg_rating": round(avg_rating, 1) if avg_rating else None,
+                "total_jobs": total_jobs
+            },
+            "is_preferred": preferred_tech_id == tech["tech_id"]
         })
 
     # Sort by score descending
@@ -310,6 +439,7 @@ async def suggest_technician(
         "data": {
             "job_id": job_id,
             "target_date": check_date,
+            "customer_preferred_tech": preferred_tech_id,
             "suggestions": suggestions
         }
     }

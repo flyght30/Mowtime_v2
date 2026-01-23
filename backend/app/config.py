@@ -58,6 +58,12 @@ class Settings(BaseSettings):
     # ElevenLabs (Phase 2)
     ELEVENLABS_API_KEY: Optional[str] = None
 
+    # OpenAI (Phase 5 - Whisper transcription)
+    OPENAI_API_KEY: Optional[str] = None
+
+    # Anthropic (Phase 5 - Claude AI)
+    ANTHROPIC_API_KEY: Optional[str] = None
+
     # Stripe (Phase 3)
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None

@@ -123,6 +123,8 @@ from app.routers.dispatch_schedule import router as schedule_router
 from app.routers.dispatch import router as dispatch_router
 from app.routers.sms import router as sms_router
 from app.routers.websocket import router as websocket_router
+from app.routers.voice_notes import router as voice_notes_router
+from app.routers.predictions import router as predictions_router
 
 # API v1 routers
 app.include_router(auth_router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
@@ -142,6 +144,8 @@ app.include_router(tech_mobile_router, prefix=f"{settings.API_V1_PREFIX}/technic
 app.include_router(schedule_router, prefix=f"{settings.API_V1_PREFIX}/schedule", tags=["Schedule"])
 app.include_router(dispatch_router, prefix=f"{settings.API_V1_PREFIX}/dispatch", tags=["Dispatch"])
 app.include_router(sms_router, prefix=f"{settings.API_V1_PREFIX}/sms", tags=["SMS"])
+app.include_router(voice_notes_router, prefix=f"{settings.API_V1_PREFIX}/voice-notes", tags=["Voice Notes"])
+app.include_router(predictions_router, prefix=f"{settings.API_V1_PREFIX}/predictions", tags=["Predictions"])
 app.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
 
 

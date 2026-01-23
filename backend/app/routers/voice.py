@@ -113,9 +113,13 @@ async def handle_gather(
 ):
     """
     Twilio webhook for speech input.
-    Processes caller's speech and responds appropriately.
+    Processes caller's speech using Claude AI for natural conversation.
     """
+    from app.services.ai_service import get_ai_service
+    import json
+
     call_service = CallService(db)
+    ai_service = get_ai_service()
 
     # Find the call
     call = await call_service.get_call_by_twilio_sid(CallSid)
@@ -131,7 +135,7 @@ async def handle_gather(
     business = await db.businesses.find_one({"business_id": call.business_id})
     business_name = business.get("name", "our company") if business else "our company"
 
-    speech_text = SpeechResult.lower().strip()
+    speech_text = SpeechResult.strip()
 
     # Log the conversation turn
     await call_service.add_conversation_turn(
@@ -143,87 +147,188 @@ async def handle_gather(
     base_url = str(request.base_url).rstrip("/")
     webhook_url = f"{base_url}/api/v1/voice/webhook"
 
-    # Simple intent detection
+    # Get conversation history
+    conversation = await call_service.get_conversation(call.call_id)
+    history = []
+    if conversation and conversation.turns:
+        history = [{"role": t.role, "content": t.content} for t in conversation.turns[-10:]]
+
+    # Get available services for context
+    services = await db.services.find({
+        "business_id": call.business_id,
+        "is_active": True,
+        "deleted_at": None
+    }).to_list(length=20)
+    service_names = [s.get("name") for s in services if s.get("name")]
+
+    # Get available appointment slots (next 7 days)
+    from datetime import datetime, timedelta
+    available_slots = []
+    for i in range(1, 8):
+        future_date = datetime.now() + timedelta(days=i)
+        if future_date.weekday() < 5:  # Weekdays only
+            available_slots.append({
+                "date": future_date.strftime("%A, %B %d"),
+                "time": "9:00 AM - 5:00 PM"
+            })
+
+    # Use Claude AI for natural conversation (if configured)
     intent = CallIntent.UNKNOWN
     response_message = ""
+    action = "continue"
+    collected_data = {}
 
-    if any(word in speech_text for word in ["book", "schedule", "appointment", "reserve"]):
-        intent = CallIntent.BOOKING
-        response_message = (
-            "I'd be happy to help you schedule an appointment. "
-            "What service are you interested in?"
-        )
+    if ai_service.is_configured:
+        try:
+            ai_result = await ai_service.generate_conversation_response(
+                business_name=business_name,
+                conversation_history=history,
+                current_speech=speech_text,
+                available_services=service_names[:5],
+                available_slots=available_slots[:5]
+            )
+
+            if ai_result.success and ai_result.content:
+                try:
+                    response_data = json.loads(ai_result.content)
+                    response_message = response_data.get("response", "")
+                    action = response_data.get("action", "continue")
+                    collected_data = response_data.get("collected_data", {})
+
+                    # Map action to intent
+                    if action == "book":
+                        intent = CallIntent.BOOKING
+                    elif action == "transfer":
+                        intent = CallIntent.SUPPORT
+                    elif action == "end":
+                        intent = CallIntent.OTHER
+
+                    # Store collected data in conversation
+                    if collected_data:
+                        await db.call_conversations.update_one(
+                            {"call_id": call.call_id},
+                            {"$set": {"entities_extracted": collected_data}}
+                        )
+
+                except json.JSONDecodeError:
+                    # If not valid JSON, use the raw response
+                    response_message = ai_result.content
+
+        except Exception as e:
+            logger.error(f"AI conversation error: {str(e)}")
+            # Fall back to keyword-based response
+            response_message = None
+
+    # Fallback to keyword-based intent detection if AI failed
+    if not response_message:
+        speech_lower = speech_text.lower()
+
+        if any(word in speech_lower for word in ["book", "schedule", "appointment", "reserve"]):
+            intent = CallIntent.BOOKING
+            response_message = (
+                "I'd be happy to help you schedule an appointment. "
+                "What service are you interested in?"
+            )
+
+        elif any(word in speech_lower for word in ["reschedule", "change", "move"]):
+            intent = CallIntent.RESCHEDULE
+            response_message = (
+                "I can help you reschedule your appointment. "
+                "Can you tell me your name and the date of your current appointment?"
+            )
+
+        elif any(word in speech_lower for word in ["cancel"]):
+            intent = CallIntent.CANCEL
+            response_message = (
+                "I understand you'd like to cancel an appointment. "
+                "Can you please provide your name and appointment date?"
+            )
+
+        elif any(word in speech_lower for word in ["price", "cost", "how much", "quote"]):
+            intent = CallIntent.INQUIRY
+            response_message = (
+                "I'd be happy to help with pricing information. "
+                "Which service would you like to know about?"
+            )
+
+        elif any(word in speech_lower for word in ["where", "status", "coming", "eta", "tech"]):
+            intent = CallIntent.INQUIRY
+            response_message = (
+                "Let me check on that for you. "
+                "Can you tell me your name or phone number so I can look up your appointment?"
+            )
+
+        elif any(word in speech_lower for word in ["speak", "talk", "human", "person", "representative", "transfer"]):
+            intent = CallIntent.SUPPORT
+            action = "transfer"
+
+        elif any(word in speech_lower for word in ["leave message", "voicemail"]):
+            twiml = call_service.generate_twiml_voicemail(
+                business_name,
+                f"{webhook_url}/recording"
+            )
+            return Response(content=twiml, media_type="application/xml")
+
+        elif any(word in speech_lower for word in ["goodbye", "bye", "thank you", "thanks", "that's all"]):
+            response_message = "Thank you for calling. Have a great day!"
+            action = "end"
+
+        else:
+            response_message = (
+                "I can help you with scheduling appointments, checking on your technician, "
+                "or connecting you with our team. What would you like to do?"
+            )
+
+    # Update call intent if detected
+    if intent != CallIntent.UNKNOWN:
         await call_service.set_call_intent(call.call_id, intent)
 
-    elif any(word in speech_text for word in ["reschedule", "change", "move"]):
-        intent = CallIntent.RESCHEDULE
-        response_message = (
-            "I can help you reschedule your appointment. "
-            "Can you tell me your name and the date of your current appointment?"
-        )
-        await call_service.set_call_intent(call.call_id, intent)
-
-    elif any(word in speech_text for word in ["cancel"]):
-        intent = CallIntent.CANCEL
-        response_message = (
-            "I understand you'd like to cancel an appointment. "
-            "Can you please provide your name and appointment date?"
-        )
-        await call_service.set_call_intent(call.call_id, intent)
-
-    elif any(word in speech_text for word in ["price", "cost", "how much", "quote"]):
-        intent = CallIntent.INQUIRY
-        response_message = (
-            "I'd be happy to help with pricing information. "
-            "Which service would you like to know about?"
-        )
-        await call_service.set_call_intent(call.call_id, intent)
-
-    elif any(word in speech_text for word in ["speak", "talk", "human", "person", "representative", "transfer"]):
-        intent = CallIntent.SUPPORT
-        await call_service.set_call_intent(call.call_id, intent, "Requested human transfer")
-
-        # Update call as transferred
+    # Handle special actions
+    if action == "transfer":
+        await call_service.set_call_intent(call.call_id, CallIntent.SUPPORT, "Requested human transfer")
         await db.calls.update_one(
             {"call_id": call.call_id},
             {"$set": {"transferred_to_human": True}}
         )
 
-        # Get transfer number from business config
         transfer_number = business.get("config", {}).get("main_phone") if business else None
-
         if transfer_number:
             twiml = call_service.generate_twiml_transfer(transfer_number)
         else:
-            # No transfer number, go to voicemail
             twiml = call_service.generate_twiml_voicemail(
                 business_name,
                 f"{webhook_url}/recording"
             )
         return Response(content=twiml, media_type="application/xml")
 
-    elif any(word in speech_text for word in ["leave message", "voicemail"]):
-        twiml = call_service.generate_twiml_voicemail(
-            business_name,
-            f"{webhook_url}/recording"
-        )
-        return Response(content=twiml, media_type="application/xml")
-
-    elif any(word in speech_text for word in ["goodbye", "bye", "thank you", "thanks", "that's all"]):
-        response_message = "Thank you for calling. Have a great day!"
-        twiml = call_service.generate_twiml_response(response_message, end_call=True)
-
-        # End the call
+    elif action == "end":
         await call_service.update_call_status(call.call_id, CallStatus.COMPLETED)
-
+        twiml = call_service.generate_twiml_response(response_message, end_call=True)
         return Response(content=twiml, media_type="application/xml")
 
-    else:
-        # Default response
-        response_message = (
-            "I can help you with scheduling appointments, checking prices, "
-            "or connecting you with our team. What would you like to do?"
-        )
+    elif action == "book" and collected_data:
+        # Attempt to create appointment if we have enough data
+        has_required = all(k in collected_data for k in ["name", "service_type"])
+        has_scheduling = "preferred_date" in collected_data or "preferred_time" in collected_data
+
+        if has_required and has_scheduling:
+            # Try to create customer and appointment
+            try:
+                booking_result = await create_booking_from_call(
+                    db, call.business_id, call.call_id, collected_data, call.from_number
+                )
+                if booking_result.get("success"):
+                    response_message = (
+                        f"I've scheduled your {collected_data.get('service_type', 'appointment')} for "
+                        f"{collected_data.get('preferred_date', 'the requested date')}. "
+                        f"You'll receive a text confirmation shortly. Is there anything else I can help with?"
+                    )
+                    await db.calls.update_one(
+                        {"call_id": call.call_id},
+                        {"$set": {"appointment_id": booking_result.get("appointment_id")}}
+                    )
+            except Exception as e:
+                logger.error(f"Booking creation error: {str(e)}")
 
     # Log AI response
     await call_service.add_conversation_turn(
@@ -239,6 +344,113 @@ async def handle_gather(
     )
 
     return Response(content=twiml, media_type="application/xml")
+
+
+async def create_booking_from_call(
+    db: AsyncIOMotorDatabase,
+    business_id: str,
+    call_id: str,
+    collected_data: dict,
+    caller_phone: str
+) -> dict:
+    """Create a customer and appointment from voice call data"""
+    from app.models.common import generate_id, utc_now
+    from datetime import datetime
+
+    try:
+        # Parse customer name
+        name_parts = collected_data.get("name", "").split(" ", 1)
+        first_name = name_parts[0] if name_parts else "Unknown"
+        last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+        # Check if customer exists by phone
+        existing_client = await db.clients.find_one({
+            "business_id": business_id,
+            "phone": caller_phone,
+            "deleted_at": None
+        })
+
+        if existing_client:
+            client_id = existing_client["client_id"]
+        else:
+            # Create new client
+            client_id = generate_id("client")
+            client = {
+                "client_id": client_id,
+                "business_id": business_id,
+                "first_name": first_name,
+                "last_name": last_name,
+                "phone": collected_data.get("phone") or caller_phone,
+                "email": collected_data.get("email"),
+                "address": collected_data.get("address"),
+                "source": "voice_ai",
+                "created_at": utc_now(),
+                "updated_at": utc_now()
+            }
+            await db.clients.insert_one(client)
+
+        # Find matching service
+        service_type = collected_data.get("service_type", "Service")
+        service = await db.services.find_one({
+            "business_id": business_id,
+            "name": {"$regex": service_type, "$options": "i"},
+            "is_active": True,
+            "deleted_at": None
+        })
+
+        # Parse preferred date
+        preferred_date = collected_data.get("preferred_date", "")
+        scheduled_date = None
+        try:
+            # Try to parse various date formats
+            for fmt in ["%A, %B %d", "%B %d", "%m/%d", "%m-%d"]:
+                try:
+                    parsed = datetime.strptime(preferred_date, fmt)
+                    scheduled_date = parsed.replace(year=datetime.now().year)
+                    if scheduled_date < datetime.now():
+                        scheduled_date = scheduled_date.replace(year=datetime.now().year + 1)
+                    break
+                except ValueError:
+                    continue
+        except Exception:
+            pass
+
+        if not scheduled_date:
+            # Default to next available weekday
+            scheduled_date = datetime.now()
+            while scheduled_date.weekday() >= 5:
+                scheduled_date += timedelta(days=1)
+            scheduled_date += timedelta(days=1)
+
+        # Create appointment
+        appointment_id = generate_id("apt")
+        appointment = {
+            "appointment_id": appointment_id,
+            "business_id": business_id,
+            "client_id": client_id,
+            "service_id": service["service_id"] if service else None,
+            "service_name": service["name"] if service else service_type,
+            "scheduled_date": scheduled_date.strftime("%Y-%m-%d"),
+            "start_time": collected_data.get("preferred_time", "09:00"),
+            "duration_minutes": service.get("duration_minutes", 60) if service else 60,
+            "status": "scheduled",
+            "source": "voice_ai",
+            "call_id": call_id,
+            "notes": collected_data.get("issue_description", ""),
+            "created_at": utc_now(),
+            "updated_at": utc_now()
+        }
+        await db.appointments.insert_one(appointment)
+
+        return {
+            "success": True,
+            "client_id": client_id,
+            "appointment_id": appointment_id
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to create booking from call: {str(e)}")
+        return {"success": False, "error": str(e)}
 
 
 @router.post(
