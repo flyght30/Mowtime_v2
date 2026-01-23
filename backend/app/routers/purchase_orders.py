@@ -3,11 +3,14 @@ Purchase Orders Router
 For managing equipment and parts procurement
 """
 
+import base64
 import logging
 from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import Response
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pydantic import BaseModel
 
 from app.database import get_database
 from app.models.user import User
@@ -20,9 +23,26 @@ from app.models.inventory import TransactionType
 from app.models.common import generate_id
 from app.middleware.auth import BusinessContext, get_business_context, get_current_user
 from app.schemas.common import SingleResponse, PaginatedResponse, MessageResponse, create_pagination_meta
+from app.services.po_pdf_service import get_po_pdf_service
+from app.services.email_service import get_email_service
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+class POSendEmailRequest(BaseModel):
+    """Request to send PO via email"""
+    email: Optional[str] = None  # If not provided, uses distributor email
+    cc: Optional[List[str]] = None
+    message: Optional[str] = None
+
+
+class POEmailSentResponse(BaseModel):
+    """Response after sending PO email"""
+    success: bool
+    email_sent_to: str
+    message: Optional[str] = None
+    error: Optional[str] = None
 
 
 async def get_next_po_number(db: AsyncIOMotorDatabase, business_id: str) -> str:
@@ -700,3 +720,233 @@ async def delete_purchase_order(
         )
 
     return MessageResponse(message="Purchase order deleted")
+
+
+@router.get(
+    "/{po_id}/pdf",
+    summary="Download PO as PDF"
+)
+async def download_po_pdf(
+    po_id: str,
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Generate and download a PDF of the purchase order.
+
+    Returns the PDF as a downloadable file.
+    """
+    # Get PO
+    po = await db.purchase_orders.find_one({
+        "po_id": po_id,
+        "business_id": ctx.business_id,
+        "deleted_at": None
+    })
+
+    if not po:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "PO_NOT_FOUND", "message": "Purchase order not found"}
+        )
+
+    # Get distributor
+    distributor = await db.distributors.find_one({"distributor_id": po["distributor_id"]})
+    if not distributor:
+        distributor = {"name": "Unknown Distributor"}
+
+    # Get business
+    business = await db.businesses.find_one({"business_id": ctx.business_id})
+    if not business:
+        business = {"name": "Company"}
+
+    # Generate PDF
+    pdf_service = get_po_pdf_service()
+    try:
+        pdf_bytes = pdf_service.generate_po_pdf(po, distributor, business)
+    except Exception as e:
+        logger.error(f"PDF generation failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "PDF_ERROR", "message": "Failed to generate PDF"}
+        )
+
+    filename = f"{po['po_number']}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
+
+
+@router.post(
+    "/{po_id}/email",
+    response_model=SingleResponse[POEmailSentResponse],
+    summary="Send PO via email"
+)
+async def email_purchase_order(
+    po_id: str,
+    request: POSendEmailRequest = POSendEmailRequest(),
+    ctx: BusinessContext = Depends(get_business_context),
+    current_user: User = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Send the purchase order as a PDF attachment via email.
+
+    If no email is provided, sends to the distributor's email address.
+    Also marks the PO as sent if it was in draft/approved status.
+    """
+    # Get PO
+    po = await db.purchase_orders.find_one({
+        "po_id": po_id,
+        "business_id": ctx.business_id,
+        "deleted_at": None
+    })
+
+    if not po:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "PO_NOT_FOUND", "message": "Purchase order not found"}
+        )
+
+    # Get distributor
+    distributor = await db.distributors.find_one({"distributor_id": po["distributor_id"]})
+    if not distributor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "DISTRIBUTOR_NOT_FOUND", "message": "Distributor not found"}
+        )
+
+    # Determine email recipient
+    to_email = request.email or distributor.get("email")
+    if not to_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "NO_EMAIL", "message": "No email address provided and distributor has no email on file"}
+        )
+
+    # Get business
+    business = await db.businesses.find_one({"business_id": ctx.business_id})
+    if not business:
+        business = {"name": "Company", "email": "", "phone": ""}
+
+    # Generate PDF
+    pdf_service = get_po_pdf_service()
+    try:
+        pdf_bytes = pdf_service.generate_po_pdf(po, distributor, business)
+    except Exception as e:
+        logger.error(f"PDF generation failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "PDF_ERROR", "message": "Failed to generate PDF"}
+        )
+
+    # Prepare email content
+    po_number = po.get("po_number", "")
+    business_name = business.get("name", "")
+
+    custom_message = ""
+    if request.message:
+        custom_message = f"<p>{request.message}</p>"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>Purchase Order {po_number}</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #4CAF50; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0;">Purchase Order</h1>
+        </div>
+        <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
+            <p>Dear {distributor.get('contact_name', distributor.get('name', 'Supplier'))},</p>
+            <p>Please find attached Purchase Order <strong>{po_number}</strong> from {business_name}.</p>
+            {custom_message}
+            <div style="background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p><strong>PO Number:</strong> {po_number}</p>
+                <p><strong>Total:</strong> ${po.get('total', 0):,.2f}</p>
+                <p><strong>Items:</strong> {len(po.get('items', []))} line items</p>
+            </div>
+            <p>Please confirm receipt of this order and provide expected delivery dates.</p>
+            <p>If you have any questions, please contact us.</p>
+            <p>Best regards,<br>{business_name}</p>
+        </div>
+        <div style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
+            <p>Please reference PO # {po_number} on all correspondence and invoices.</p>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_content = f"""
+Purchase Order {po_number}
+
+Dear {distributor.get('contact_name', distributor.get('name', 'Supplier'))},
+
+Please find attached Purchase Order {po_number} from {business_name}.
+
+{request.message or ''}
+
+PO Number: {po_number}
+Total: ${po.get('total', 0):,.2f}
+Items: {len(po.get('items', []))} line items
+
+Please confirm receipt of this order and provide expected delivery dates.
+
+Best regards,
+{business_name}
+    """
+
+    # Prepare attachment
+    pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+    attachments = [{
+        "content": pdf_base64,
+        "filename": f"{po_number}.pdf",
+        "type": "application/pdf",
+        "disposition": "attachment"
+    }]
+
+    # Send email
+    email_service = get_email_service()
+    result = await email_service.send_email(
+        to_email=to_email,
+        subject=f"Purchase Order {po_number} from {business_name}",
+        html_content=html_content,
+        text_content=text_content,
+        to_name=distributor.get("contact_name"),
+        attachments=attachments
+    )
+
+    if result.success:
+        # Update PO status to sent if not already sent/received
+        if po["status"] in [POStatus.DRAFT.value, POStatus.APPROVED.value]:
+            await db.purchase_orders.update_one(
+                {"po_id": po_id},
+                {"$set": {
+                    "status": POStatus.SENT.value,
+                    "sent_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow(),
+                    "updated_by": current_user.user_id
+                }}
+            )
+
+        logger.info(f"PO {po_number} emailed to {to_email}")
+
+        return SingleResponse(data=POEmailSentResponse(
+            success=True,
+            email_sent_to=to_email,
+            message=f"Purchase order {po_number} sent successfully"
+        ))
+    else:
+        logger.error(f"Failed to email PO {po_number}: {result.error}")
+
+        return SingleResponse(data=POEmailSentResponse(
+            success=False,
+            email_sent_to=to_email,
+            error=result.error or "Failed to send email"
+        ))
