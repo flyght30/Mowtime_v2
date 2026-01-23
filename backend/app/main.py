@@ -128,6 +128,11 @@ from app.routers.predictions import router as predictions_router
 from app.routers.ai_analysis import router as ai_analysis_router
 from app.routers.troubleshoot import router as troubleshoot_router
 from app.routers.followup import router as followup_router
+from app.routers.distributors import router as distributors_router
+from app.routers.pricelist import router as pricelist_router
+from app.routers.inventory import router as inventory_router
+from app.routers.purchase_orders import router as purchase_orders_router
+from app.routers.costing import router as costing_router
 
 # API v1 routers
 app.include_router(auth_router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
@@ -152,6 +157,11 @@ app.include_router(predictions_router, prefix=f"{settings.API_V1_PREFIX}/predict
 app.include_router(ai_analysis_router, prefix=f"{settings.API_V1_PREFIX}/ai", tags=["AI Analysis"])
 app.include_router(troubleshoot_router, prefix=f"{settings.API_V1_PREFIX}/troubleshoot", tags=["Troubleshooting"])
 app.include_router(followup_router, prefix=f"{settings.API_V1_PREFIX}/followups", tags=["Follow-Ups"])
+app.include_router(distributors_router, prefix=f"{settings.API_V1_PREFIX}/distributors", tags=["Distributors"])
+app.include_router(pricelist_router, prefix=f"{settings.API_V1_PREFIX}/pricelist", tags=["Price List"])
+app.include_router(inventory_router, prefix=f"{settings.API_V1_PREFIX}/inventory", tags=["Inventory"])
+app.include_router(purchase_orders_router, prefix=f"{settings.API_V1_PREFIX}/purchase-orders", tags=["Purchase Orders"])
+app.include_router(costing_router, prefix=f"{settings.API_V1_PREFIX}/costing", tags=["Job Costing"])
 app.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
 
 
