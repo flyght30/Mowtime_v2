@@ -36,7 +36,9 @@ def times_overlap(start1: str, end1: str, start2: str, end2: str) -> bool:
     return s1 < e2 and s2 < e1
 
 
-GEOFENCE_RADIUS_MILES = 0.093
+# Geofence radius in feet (500 feet ≈ 152 meters)
+GEOFENCE_RADIUS_FEET = 500
+GEOFENCE_RADIUS_MILES = GEOFENCE_RADIUS_FEET / 5280  # Convert to miles
 
 # Test Technician Model
 class TestTechnicianModel:
@@ -415,9 +417,11 @@ class TestGeofenceDetection:
     """Tests for geofence auto-arrival detection"""
 
     def test_geofence_radius_constant(self):
-        """Test geofence radius is defined"""
-        # Should be approximately 150 meters (0.093 miles)
-        assert 0.08 < GEOFENCE_RADIUS_MILES < 0.1
+        """Test geofence radius is defined in feet"""
+        # Should be 500 feet (approximately 152 meters)
+        assert GEOFENCE_RADIUS_FEET == 500
+        # Converted to miles: 500 / 5280 ≈ 0.0947
+        assert 0.09 < GEOFENCE_RADIUS_MILES < 0.1
 
     def test_haversine_distance_calculation(self):
         """Test distance calculation for geofence"""

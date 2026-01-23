@@ -292,8 +292,9 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return R * c
 
 
-# Geofence radius in miles (approximately 150 meters)
-GEOFENCE_RADIUS_MILES = 0.093
+# Geofence radius in feet (500 feet ≈ 152 meters)
+GEOFENCE_RADIUS_FEET = 500
+GEOFENCE_RADIUS_MILES = GEOFENCE_RADIUS_FEET / 5280  # Convert to miles for haversine
 
 
 @router.post(
