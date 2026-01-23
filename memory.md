@@ -21,12 +21,57 @@
 - [x] **Phase 3: Payments & Advanced Features** - COMPLETE
 - [x] **Stage 2A: Multi-Vertical Integration** - COMPLETE
 - [x] **Phase 1 (TheWorx Foundation)**: HVAC Vertical - COMPLETE
+- [x] **Phase 2 (Dispatch)**: Technician & Schedule Management - COMPLETE
+- [x] **Phase 3 (SMS)**: Twilio SMS with Templates - COMPLETE
 
 ---
 
 ## Development Log
 
-### Session: 2026-01-23
+### Session: 2026-01-23 (Continued)
+
+#### Phase 2 - Dispatch & Scheduling ✓
+Full dispatch board with technician management and GPS tracking.
+
+**Backend (Technicians & Scheduling)**:
+- `backend/app/models/technician.py` - Technician with GPS, status, skills, stats
+- `backend/app/models/schedule_entry.py` - Job-tech scheduling entries
+- `backend/app/routers/technicians.py` - Full CRUD + status/location
+- `backend/app/routers/dispatch_schedule.py` - Schedule management, assignment
+- `backend/app/routers/dispatch.py` - Queue, map-data, tech suggestions, routes, stats
+- Haversine distance calculation for ETA estimates
+- AI-powered tech suggestion scoring (distance, skills, availability)
+
+**Frontend (Dispatch Board)**:
+- `frontend/services/dispatchApi.ts` - API service with TypeScript types
+- `frontend/components/technicians/TechCard.tsx` - Status badges, skills
+- `frontend/components/technicians/TechForm.tsx` - Create/edit form
+- `frontend/app/technicians/index.tsx` - List with search/filters
+- `frontend/app/technicians/[id].tsx` - Detail with schedule, stats
+- `frontend/app/technicians/add.tsx` - Add form modal
+- `frontend/app/dispatch/index.tsx` - Dispatch board with job queue, tech panel
+
+#### Phase 3 - SMS Communications ✓
+Twilio SMS integration with templates, triggers, and conversation management.
+
+**Backend**:
+- `backend/app/models/sms.py` - SMSMessage, SMSTemplate, SMSSettings
+- `backend/app/services/sms_service.py` - Twilio integration, templates, triggers
+- `backend/app/routers/sms.py` - Messages, templates, settings, webhooks
+- 6 default templates (scheduled, reminder, enroute, 15_min, arrived, complete)
+- Opt-in/opt-out handling (STOP/START keywords)
+- Template variable substitution ({{customer_first_name}}, etc.)
+
+**Frontend**:
+- `frontend/services/smsApi.ts` - Full API service
+- `frontend/app/sms/index.tsx` - Conversations list with stats
+- `frontend/app/sms/conversation/[id].tsx` - Chat view with message bubbles
+- `frontend/app/sms/settings.tsx` - Toggle triggers, reminder timing
+- `frontend/app/sms/templates.tsx` - Template editor with variable insertion
+
+---
+
+### Session: 2026-01-23 (Earlier)
 
 #### Stage 2A - Multi-Vertical Integration ✓
 - BrandingContext: White-label support with dynamic logo/colors
@@ -129,7 +174,7 @@ Integrated TheWorx HVAC platform features into ServicePro:
 
 ---
 
-## API Summary (12 Routers, 100+ Endpoints)
+## API Summary (18 Routers, 150+ Endpoints)
 
 ### Core APIs
 - `/api/v1/auth/*` - Authentication & user management
@@ -146,6 +191,14 @@ Integrated TheWorx HVAC platform features into ServicePro:
 - `/api/v1/notifications/*` - Multi-channel notifications
 - `/api/v1/voice/*` - AI voice receptionist
 - `/api/v1/payments/*` - Stripe payments & invoicing
+
+### Dispatch APIs
+- `/api/v1/technicians/*` - Technician CRUD, status, GPS tracking
+- `/api/v1/schedule/*` - Job scheduling, assignment, optimization
+- `/api/v1/dispatch/*` - Queue, map-data, tech suggestions, routes
+
+### SMS APIs
+- `/api/v1/sms/*` - Messages, conversations, templates, settings, webhooks
 
 ### Vertical APIs
 - `/api/v1/verticals/*` - Vertical management
@@ -188,20 +241,22 @@ STRIPE_WEBHOOK_SECRET=
 
 ## File Structure
 
-### Backend (50+ files)
+### Backend (60+ files)
 ```
 backend/app/
 ├── main.py, config.py, database.py
-├── models/ (12 models)
+├── models/ (15 models)
 │   └── user, business, client, appointment, service, staff,
-│       equipment, availability, notification, call, payment
-├── routers/ (14 routers)
+│       equipment, availability, notification, call, payment,
+│       technician, schedule_entry, sms
+├── routers/ (18 routers)
 │   └── auth, businesses, clients, services, staff, equipment,
 │       appointments, availability, scheduling, notifications,
-│       voice, payments, verticals
-├── services/ (11 services)
+│       voice, payments, verticals, technicians, dispatch_schedule,
+│       dispatch, sms
+├── services/ (12 services)
 │   └── auth, base, weather, scheduling, sms, push, email,
-│       notification, voice, call, payment
+│       notification, voice, call, payment, dispatch
 ├── verticals/ (modular vertical system)
 │   ├── base/ (BaseVertical, VerticalConfig)
 │   ├── registry.py (VerticalRegistry)
@@ -211,20 +266,24 @@ backend/app/
 └── utils/ (security.py, exceptions.py)
 ```
 
-### Frontend (50+ files)
+### Frontend (70+ files)
 ```
 frontend/
 ├── app/
 │   ├── (auth)/ (login, register)
 │   ├── (tabs)/ (dashboard, appointments, clients, hvac-hub, settings)
 │   ├── hvac/ (calculate, equipment, quotes, maintenance, inventory)
+│   ├── technicians/ (index, [id], add)
+│   ├── dispatch/ (index)
+│   ├── sms/ (index, settings, templates, conversation/[id])
 │   └── settings/ (pricing.tsx)
 ├── components/
 │   ├── ui/ (Button, Input, Card)
 │   ├── dashboard/ (HVACWidgets, LawnCareWidgets)
+│   ├── technicians/ (TechCard, TechForm)
 │   └── ErrorBoundary.tsx
 ├── contexts/ (AuthContext, BrandingContext, VerticalContext, DemoContext)
-├── services/ (api.ts, hvacApi.ts)
+├── services/ (api.ts, hvacApi.ts, dispatchApi.ts, smsApi.ts)
 └── constants/ (config, theme)
 ```
 
@@ -245,5 +304,11 @@ ServicePro is a **complete multi-vertical service business operating system** wi
 - ✓ HVAC vertical with load calc, quoting, maintenance
 - ✓ White-label branding support
 - ✓ Multi-vertical dashboard with widgets
+- ✓ Technician dispatch with GPS tracking
+- ✓ Job scheduling with tech assignment
+- ✓ Dispatch board with AI tech suggestions
+- ✓ SMS communications with Twilio
+- ✓ Automated SMS triggers (scheduled, reminder, enroute, arrived, complete)
+- ✓ SMS template management with variable substitution
 
-**All phases completed. HVAC vertical (TheWorx Foundation) integrated.**
+**All phases completed. Full dispatch system and SMS communications integrated.**

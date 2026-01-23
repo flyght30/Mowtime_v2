@@ -120,6 +120,7 @@ from app.routers.payments import router as payments_router
 from app.routers.technicians import router as technicians_router
 from app.routers.dispatch_schedule import router as schedule_router
 from app.routers.dispatch import router as dispatch_router
+from app.routers.sms import router as sms_router
 
 # API v1 routers
 app.include_router(auth_router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
@@ -137,6 +138,7 @@ app.include_router(payments_router, prefix=f"{settings.API_V1_PREFIX}/payments",
 app.include_router(technicians_router, prefix=f"{settings.API_V1_PREFIX}/technicians", tags=["Technicians"])
 app.include_router(schedule_router, prefix=f"{settings.API_V1_PREFIX}/schedule", tags=["Schedule"])
 app.include_router(dispatch_router, prefix=f"{settings.API_V1_PREFIX}/dispatch", tags=["Dispatch"])
+app.include_router(sms_router, prefix=f"{settings.API_V1_PREFIX}/sms", tags=["SMS"])
 
 
 if __name__ == "__main__":
