@@ -1,0 +1,1316 @@
+{
+  "carrier": {
+    "brand_name": "Carrier",
+    "error_codes": {
+      "11": {
+        "code": "11",
+        "meaning": "No Previous Code",
+        "category": "diagnostic",
+        "severity": "info",
+        "description": "No fault history stored in system memory",
+        "possible_causes": [
+          "System has been reset recently",
+          "First startup after installation",
+          "Normal operation"
+        ],
+        "solutions": [
+          "No action required",
+          "Proceed with normal diagnostic checks"
+        ],
+        "parts_needed": []
+      },
+      "13": {
+        "code": "13",
+        "meaning": "Limit Circuit Lockout",
+        "category": "safety",
+        "severity": "critical",
+        "description": "High temperature limit switch has tripped multiple times, causing lockout",
+        "possible_causes": [
+          "Restricted airflow - dirty filter or blocked vents",
+          "Failed blower motor",
+          "Bad limit switch",
+          "Oversized furnace for ductwork",
+          "Dirty evaporator coil"
+        ],
+        "solutions": [
+          "Check and replace air filter",
+          "Verify all supply and return vents are open",
+          "Check blower motor operation",
+          "Test limit switch with multimeter",
+          "Inspect evaporator coil for dirt/ice"
+        ],
+        "parts_needed": ["Air filter", "Limit switch", "Blower motor capacitor"]
+      },
+      "14": {
+        "code": "14",
+        "meaning": "Ignition Lockout",
+        "category": "ignition",
+        "severity": "critical",
+        "description": "Furnace failed to ignite after multiple attempts",
+        "possible_causes": [
+          "Gas supply issue",
+          "Failed ignitor",
+          "Dirty flame sensor",
+          "Gas valve failure",
+          "Control board issue"
+        ],
+        "solutions": [
+          "Verify gas supply is on",
+          "Clean flame sensor with emery cloth",
+          "Check ignitor for cracks or damage",
+          "Test gas valve operation",
+          "Inspect control board for damage"
+        ],
+        "parts_needed": ["Ignitor", "Flame sensor", "Gas valve"]
+      },
+      "21": {
+        "code": "21",
+        "meaning": "Gas Heating Lockout",
+        "category": "gas",
+        "severity": "critical",
+        "description": "Gas valve energized but no flame detected",
+        "possible_causes": [
+          "No gas supply",
+          "Gas valve failure",
+          "Dirty or failed flame sensor",
+          "Ignitor not lighting gas"
+        ],
+        "solutions": [
+          "Check gas meter and shutoff valves",
+          "Test gas valve with multimeter",
+          "Clean flame sensor",
+          "Verify ignitor is glowing"
+        ],
+        "parts_needed": ["Gas valve", "Flame sensor"]
+      },
+      "22": {
+        "code": "22",
+        "meaning": "Abnormal Flame Signal",
+        "category": "flame",
+        "severity": "warning",
+        "description": "Flame detected when there should be none",
+        "possible_causes": [
+          "Stuck gas valve",
+          "Flame sensor grounded",
+          "Control board issue"
+        ],
+        "solutions": [
+          "Replace gas valve if stuck open",
+          "Check flame sensor wiring for shorts",
+          "Inspect control board"
+        ],
+        "parts_needed": ["Gas valve", "Control board"]
+      },
+      "23": {
+        "code": "23",
+        "meaning": "Pressure Switch Fault",
+        "category": "airflow",
+        "severity": "critical",
+        "description": "Pressure switch failed to close or opened during operation",
+        "possible_causes": [
+          "Blocked exhaust vent",
+          "Failed inducer motor",
+          "Cracked pressure switch hose",
+          "Bad pressure switch",
+          "Condensate drain blocked"
+        ],
+        "solutions": [
+          "Inspect exhaust vent for blockages",
+          "Check inducer motor operation",
+          "Replace cracked hoses",
+          "Test pressure switch",
+          "Clear condensate drain"
+        ],
+        "parts_needed": ["Pressure switch", "Inducer motor", "Pressure switch hose"]
+      },
+      "24": {
+        "code": "24",
+        "meaning": "Secondary Voltage Fuse Open",
+        "category": "electrical",
+        "severity": "critical",
+        "description": "24V fuse on control board has blown",
+        "possible_causes": [
+          "Thermostat wire short",
+          "Contactor coil shorted",
+          "Transformer failure",
+          "Control board issue"
+        ],
+        "solutions": [
+          "Check thermostat wiring for shorts",
+          "Inspect all low voltage connections",
+          "Replace 3A fuse after finding short",
+          "Test transformer output"
+        ],
+        "parts_needed": ["3A fuse", "Transformer", "Thermostat wire"]
+      },
+      "31": {
+        "code": "31",
+        "meaning": "High Pressure Lockout",
+        "category": "refrigerant",
+        "severity": "critical",
+        "description": "High pressure switch has tripped",
+        "possible_causes": [
+          "Dirty condenser coil",
+          "Condenser fan failure",
+          "Refrigerant overcharge",
+          "Restriction in system",
+          "Non-condensables in system"
+        ],
+        "solutions": [
+          "Clean condenser coil",
+          "Check condenser fan motor",
+          "Check refrigerant charge",
+          "Inspect for restrictions",
+          "Consider recovery and recharge"
+        ],
+        "parts_needed": ["Condenser fan motor", "Fan capacitor", "High pressure switch"]
+      },
+      "32": {
+        "code": "32",
+        "meaning": "Low Pressure Lockout",
+        "category": "refrigerant",
+        "severity": "critical",
+        "description": "Low pressure switch has tripped",
+        "possible_causes": [
+          "Low refrigerant charge",
+          "Refrigerant leak",
+          "Restricted filter drier",
+          "Metering device issue",
+          "Dirty evaporator coil"
+        ],
+        "solutions": [
+          "Leak test system",
+          "Check refrigerant charge",
+          "Inspect filter drier",
+          "Check metering device",
+          "Clean evaporator coil"
+        ],
+        "parts_needed": ["Refrigerant", "Filter drier", "TXV/Piston"]
+      },
+      "33": {
+        "code": "33",
+        "meaning": "Rollout Switch Open",
+        "category": "safety",
+        "severity": "critical",
+        "description": "Flame rollout switch has tripped",
+        "possible_causes": [
+          "Blocked heat exchanger",
+          "Cracked heat exchanger",
+          "Flame sensor positioning",
+          "Gas pressure too high"
+        ],
+        "solutions": [
+          "Inspect heat exchanger for cracks",
+          "Check for blockages",
+          "Verify gas pressure",
+          "Reset rollout switch"
+        ],
+        "parts_needed": ["Rollout switch", "Heat exchanger"]
+      },
+      "34": {
+        "code": "34",
+        "meaning": "Ignitor Circuit Fault",
+        "category": "ignition",
+        "severity": "critical",
+        "description": "Open ignitor circuit detected",
+        "possible_causes": [
+          "Failed ignitor",
+          "Loose wiring connection",
+          "Control board issue"
+        ],
+        "solutions": [
+          "Check ignitor resistance (40-200 ohms typical)",
+          "Inspect wiring connections",
+          "Replace ignitor if open"
+        ],
+        "parts_needed": ["Ignitor", "Ignitor harness"]
+      },
+      "41": {
+        "code": "41",
+        "meaning": "Blower Motor Fault",
+        "category": "blower",
+        "severity": "warning",
+        "description": "Blower motor not running at expected speed",
+        "possible_causes": [
+          "Failed blower motor",
+          "Bad motor capacitor",
+          "Dirty blower wheel",
+          "Control board issue"
+        ],
+        "solutions": [
+          "Check motor capacitor",
+          "Inspect blower wheel for dirt",
+          "Test motor windings",
+          "Check control board signals"
+        ],
+        "parts_needed": ["Blower motor", "Motor capacitor", "Blower wheel"]
+      },
+      "42": {
+        "code": "42",
+        "meaning": "Inducer Motor Fault",
+        "category": "blower",
+        "severity": "critical",
+        "description": "Inducer motor not running properly",
+        "possible_causes": [
+          "Failed inducer motor",
+          "Bad motor capacitor",
+          "Blocked exhaust",
+          "Control board issue"
+        ],
+        "solutions": [
+          "Check inducer motor operation",
+          "Test motor windings",
+          "Clear exhaust blockages",
+          "Check control board"
+        ],
+        "parts_needed": ["Inducer motor", "Inducer capacitor"]
+      },
+      "44": {
+        "code": "44",
+        "meaning": "Blower Calibration Fault",
+        "category": "blower",
+        "severity": "warning",
+        "description": "ECM blower motor calibration failure",
+        "possible_causes": [
+          "Static pressure too high",
+          "Ductwork restrictions",
+          "Motor communication issue",
+          "Control board problem"
+        ],
+        "solutions": [
+          "Check static pressure",
+          "Verify ductwork sizing",
+          "Reset system power",
+          "Replace motor if persistent"
+        ],
+        "parts_needed": ["ECM blower motor", "Control board"]
+      },
+      "45": {
+        "code": "45",
+        "meaning": "Control Circuitry Lockout",
+        "category": "electrical",
+        "severity": "critical",
+        "description": "Control board has detected internal fault",
+        "possible_causes": [
+          "Voltage spike damage",
+          "Control board failure",
+          "Loose connections"
+        ],
+        "solutions": [
+          "Power cycle system",
+          "Check all connections",
+          "Replace control board if persistent"
+        ],
+        "parts_needed": ["Control board"]
+      }
+    }
+  },
+  "trane": {
+    "brand_name": "Trane",
+    "error_codes": {
+      "126": {
+        "code": "126",
+        "meaning": "Low Pressure Lockout",
+        "category": "refrigerant",
+        "severity": "critical",
+        "description": "Low refrigerant pressure detected",
+        "possible_causes": [
+          "Refrigerant leak",
+          "Low charge",
+          "Restricted metering device",
+          "Dirty evaporator"
+        ],
+        "solutions": [
+          "Perform leak detection",
+          "Check/add refrigerant",
+          "Inspect metering device",
+          "Clean evaporator coil"
+        ],
+        "parts_needed": ["Refrigerant", "TXV", "Filter drier"]
+      },
+      "79": {
+        "code": "79",
+        "meaning": "High Pressure Lockout",
+        "category": "refrigerant",
+        "severity": "critical",
+        "description": "High refrigerant pressure detected",
+        "possible_causes": [
+          "Dirty condenser coil",
+          "Fan motor failure",
+          "Overcharged system",
+          "Non-condensables"
+        ],
+        "solutions": [
+          "Clean condenser coil",
+          "Check condenser fan",
+          "Verify charge levels",
+          "Evacuate and recharge if needed"
+        ],
+        "parts_needed": ["Condenser fan motor", "Refrigerant"]
+      },
+      "89": {
+        "code": "89",
+        "meaning": "Low Airflow",
+        "category": "airflow",
+        "severity": "warning",
+        "description": "Insufficient airflow across coil",
+        "possible_causes": [
+          "Dirty air filter",
+          "Blocked vents",
+          "Blower motor issue",
+          "Ductwork problems"
+        ],
+        "solutions": [
+          "Replace air filter",
+          "Check all vents",
+          "Inspect blower motor",
+          "Verify ductwork"
+        ],
+        "parts_needed": ["Air filter", "Blower motor"]
+      },
+      "91": {
+        "code": "91",
+        "meaning": "Outdoor Unit Communication Fault",
+        "category": "communication",
+        "severity": "critical",
+        "description": "Lost communication with outdoor unit",
+        "possible_causes": [
+          "Wiring damage",
+          "Control board failure",
+          "Power interruption"
+        ],
+        "solutions": [
+          "Check communication wiring",
+          "Verify power to outdoor unit",
+          "Reset both units",
+          "Replace control board if needed"
+        ],
+        "parts_needed": ["Communication wire", "Control board"]
+      },
+      "105": {
+        "code": "105",
+        "meaning": "Compressor Thermal Overload",
+        "category": "compressor",
+        "severity": "critical",
+        "description": "Compressor has overheated",
+        "possible_causes": [
+          "Low refrigerant",
+          "Dirty condenser",
+          "High ambient temperature",
+          "Compressor failure"
+        ],
+        "solutions": [
+          "Check refrigerant charge",
+          "Clean condenser coil",
+          "Allow compressor to cool",
+          "Test compressor windings"
+        ],
+        "parts_needed": ["Compressor", "Refrigerant", "Hard start kit"]
+      }
+    }
+  },
+  "lennox": {
+    "brand_name": "Lennox",
+    "error_codes": {
+      "201": {
+        "code": "201",
+        "meaning": "Invalid/Incompatible Indoor Unit",
+        "category": "communication",
+        "severity": "critical",
+        "description": "Indoor unit not recognized by system",
+        "possible_causes": [
+          "Incompatible equipment",
+          "Communication wire issue",
+          "Control board mismatch"
+        ],
+        "solutions": [
+          "Verify equipment compatibility",
+          "Check communication wiring",
+          "Update firmware if applicable"
+        ],
+        "parts_needed": ["Communication wire", "Control board"]
+      },
+      "211": {
+        "code": "211",
+        "meaning": "No Indoor Unit Connected",
+        "category": "communication",
+        "severity": "critical",
+        "description": "Cannot detect indoor unit",
+        "possible_causes": [
+          "Wiring disconnected",
+          "Indoor unit power off",
+          "Communication fault"
+        ],
+        "solutions": [
+          "Check all wiring connections",
+          "Verify indoor unit has power",
+          "Test communication signals"
+        ],
+        "parts_needed": ["Communication wire"]
+      },
+      "231": {
+        "code": "231",
+        "meaning": "Voltage Out of Range",
+        "category": "electrical",
+        "severity": "warning",
+        "description": "Supply voltage too high or too low",
+        "possible_causes": [
+          "Utility voltage issue",
+          "Bad transformer",
+          "Loose connections"
+        ],
+        "solutions": [
+          "Measure incoming voltage",
+          "Contact utility if needed",
+          "Tighten all connections",
+          "Install surge protector"
+        ],
+        "parts_needed": ["Surge protector", "Transformer"]
+      },
+      "250": {
+        "code": "250",
+        "meaning": "Low Refrigerant",
+        "category": "refrigerant",
+        "severity": "critical",
+        "description": "System detecting low refrigerant charge",
+        "possible_causes": [
+          "Refrigerant leak",
+          "Undercharged system"
+        ],
+        "solutions": [
+          "Leak test entire system",
+          "Repair leaks found",
+          "Recharge to proper level"
+        ],
+        "parts_needed": ["Refrigerant", "Leak repair materials"]
+      },
+      "270": {
+        "code": "270",
+        "meaning": "Indoor Coil Temp Sensor Fault",
+        "category": "sensor",
+        "severity": "warning",
+        "description": "Indoor coil temperature sensor reading invalid",
+        "possible_causes": [
+          "Failed sensor",
+          "Loose connection",
+          "Damaged wiring"
+        ],
+        "solutions": [
+          "Check sensor resistance",
+          "Verify wiring connections",
+          "Replace sensor if faulty"
+        ],
+        "parts_needed": ["Temperature sensor"]
+      },
+      "292": {
+        "code": "292",
+        "meaning": "High Discharge Temperature",
+        "category": "refrigerant",
+        "severity": "critical",
+        "description": "Compressor discharge temp too high",
+        "possible_causes": [
+          "Low refrigerant",
+          "Restricted airflow",
+          "Metering device issue",
+          "Compressor failure"
+        ],
+        "solutions": [
+          "Check refrigerant charge",
+          "Clean both coils",
+          "Inspect metering device",
+          "Test compressor"
+        ],
+        "parts_needed": ["Refrigerant", "TXV", "Compressor"]
+      }
+    }
+  },
+  "rheem": {
+    "brand_name": "Rheem / Ruud",
+    "error_codes": {
+      "1": {
+        "code": "1",
+        "meaning": "Primary Limit Open",
+        "category": "safety",
+        "severity": "critical",
+        "description": "High limit switch is open",
+        "possible_causes": [
+          "Dirty filter",
+          "Blocked registers",
+          "Blower motor issue",
+          "Bad limit switch"
+        ],
+        "solutions": [
+          "Replace air filter",
+          "Open all registers",
+          "Check blower motor",
+          "Test limit switch"
+        ],
+        "parts_needed": ["Air filter", "Limit switch", "Blower motor"]
+      },
+      "2": {
+        "code": "2",
+        "meaning": "Pressure Switch Open",
+        "category": "airflow",
+        "severity": "critical",
+        "description": "Pressure switch failed to close",
+        "possible_causes": [
+          "Blocked vent/exhaust",
+          "Failed inducer motor",
+          "Bad pressure switch",
+          "Condensate backup"
+        ],
+        "solutions": [
+          "Check vent for blockages",
+          "Test inducer motor",
+          "Replace pressure switch",
+          "Clear condensate drain"
+        ],
+        "parts_needed": ["Pressure switch", "Inducer motor"]
+      },
+      "3": {
+        "code": "3",
+        "meaning": "Ignition Failure",
+        "category": "ignition",
+        "severity": "critical",
+        "description": "System failed to ignite",
+        "possible_causes": [
+          "No gas",
+          "Bad ignitor",
+          "Dirty flame sensor",
+          "Gas valve issue"
+        ],
+        "solutions": [
+          "Check gas supply",
+          "Replace ignitor",
+          "Clean flame sensor",
+          "Test gas valve"
+        ],
+        "parts_needed": ["Ignitor", "Flame sensor", "Gas valve"]
+      },
+      "4": {
+        "code": "4",
+        "meaning": "Limit Switch Lockout",
+        "category": "safety",
+        "severity": "critical",
+        "description": "Multiple limit switch trips",
+        "possible_causes": [
+          "Severe airflow restriction",
+          "Heat exchanger issue",
+          "Oversized furnace"
+        ],
+        "solutions": [
+          "Check entire airflow system",
+          "Inspect heat exchanger",
+          "Verify proper sizing"
+        ],
+        "parts_needed": ["Limit switch", "Heat exchanger"]
+      },
+      "5": {
+        "code": "5",
+        "meaning": "Flame Sense Error",
+        "category": "flame",
+        "severity": "warning",
+        "description": "Flame sensed when not expected",
+        "possible_causes": [
+          "Gas valve leaking",
+          "Flame sensor grounded"
+        ],
+        "solutions": [
+          "Test gas valve",
+          "Check flame sensor wiring"
+        ],
+        "parts_needed": ["Gas valve"]
+      },
+      "6": {
+        "code": "6",
+        "meaning": "Low Flame Signal",
+        "category": "flame",
+        "severity": "warning",
+        "description": "Weak flame signal detected",
+        "possible_causes": [
+          "Dirty flame sensor",
+          "Grounding issue",
+          "Gas pressure problem"
+        ],
+        "solutions": [
+          "Clean flame sensor",
+          "Check grounding",
+          "Verify gas pressure"
+        ],
+        "parts_needed": ["Flame sensor"]
+      }
+    }
+  },
+  "goodman": {
+    "brand_name": "Goodman / Amana",
+    "error_codes": {
+      "E1": {
+        "code": "E1",
+        "meaning": "High Pressure Protection",
+        "category": "refrigerant",
+        "severity": "critical",
+        "description": "High pressure switch tripped",
+        "possible_causes": [
+          "Dirty condenser",
+          "Fan motor failure",
+          "Overcharge",
+          "Ambient too high"
+        ],
+        "solutions": [
+          "Clean condenser coil",
+          "Check fan motor",
+          "Verify refrigerant charge",
+          "Ensure proper clearance"
+        ],
+        "parts_needed": ["Condenser fan motor", "Refrigerant"]
+      },
+      "E2": {
+        "code": "E2",
+        "meaning": "Low Pressure Protection",
+        "category": "refrigerant",
+        "severity": "critical",
+        "description": "Low pressure switch tripped",
+        "possible_causes": [
+          "Refrigerant leak",
+          "Undercharge",
+          "Restriction",
+          "Low ambient"
+        ],
+        "solutions": [
+          "Leak test system",
+          "Add refrigerant",
+          "Check for restrictions"
+        ],
+        "parts_needed": ["Refrigerant", "Filter drier"]
+      },
+      "E3": {
+        "code": "E3",
+        "meaning": "Compressor Overcurrent",
+        "category": "compressor",
+        "severity": "critical",
+        "description": "Compressor drawing excessive current",
+        "possible_causes": [
+          "Locked rotor",
+          "High head pressure",
+          "Failing compressor",
+          "Electrical issue"
+        ],
+        "solutions": [
+          "Check compressor amp draw",
+          "Verify pressures",
+          "Test compressor windings",
+          "Check electrical connections"
+        ],
+        "parts_needed": ["Compressor", "Hard start kit", "Contactor"]
+      },
+      "E4": {
+        "code": "E4",
+        "meaning": "Discharge Temp Protection",
+        "category": "refrigerant",
+        "severity": "critical",
+        "description": "Compressor discharge temp too high",
+        "possible_causes": [
+          "Low refrigerant",
+          "Restricted metering",
+          "Low airflow"
+        ],
+        "solutions": [
+          "Check charge",
+          "Inspect TXV",
+          "Verify airflow"
+        ],
+        "parts_needed": ["Refrigerant", "TXV"]
+      },
+      "E5": {
+        "code": "E5",
+        "meaning": "Communication Error",
+        "category": "communication",
+        "severity": "warning",
+        "description": "Lost communication between boards",
+        "possible_causes": [
+          "Wiring issue",
+          "Board failure"
+        ],
+        "solutions": [
+          "Check communication wires",
+          "Reset power",
+          "Replace board if needed"
+        ],
+        "parts_needed": ["Communication wire", "Control board"]
+      },
+      "E6": {
+        "code": "E6",
+        "meaning": "Outdoor Coil Sensor Error",
+        "category": "sensor",
+        "severity": "warning",
+        "description": "Outdoor coil sensor fault",
+        "possible_causes": [
+          "Failed sensor",
+          "Wiring damage"
+        ],
+        "solutions": [
+          "Test sensor",
+          "Check wiring",
+          "Replace sensor"
+        ],
+        "parts_needed": ["Temperature sensor"]
+      }
+    }
+  },
+  "york": {
+    "brand_name": "York",
+    "error_codes": {
+      "E1": {
+        "code": "E1",
+        "meaning": "Room Temp Sensor Error",
+        "category": "sensor",
+        "severity": "warning",
+        "description": "Indoor temperature sensor fault",
+        "possible_causes": [
+          "Failed sensor",
+          "Wiring issue"
+        ],
+        "solutions": [
+          "Test sensor resistance",
+          "Check connections",
+          "Replace sensor"
+        ],
+        "parts_needed": ["Room temp sensor"]
+      },
+      "E2": {
+        "code": "E2",
+        "meaning": "Indoor Coil Sensor Error",
+        "category": "sensor",
+        "severity": "warning",
+        "description": "Indoor coil sensor fault",
+        "possible_causes": [
+          "Failed sensor",
+          "Wiring damage"
+        ],
+        "solutions": [
+          "Test sensor",
+          "Replace if faulty"
+        ],
+        "parts_needed": ["Coil temp sensor"]
+      },
+      "E3": {
+        "code": "E3",
+        "meaning": "Outdoor Coil Sensor Error",
+        "category": "sensor",
+        "severity": "warning",
+        "description": "Outdoor coil sensor fault",
+        "possible_causes": [
+          "Failed sensor",
+          "Weather damage"
+        ],
+        "solutions": [
+          "Inspect sensor",
+          "Replace sensor"
+        ],
+        "parts_needed": ["Coil temp sensor"]
+      },
+      "E4": {
+        "code": "E4",
+        "meaning": "System Malfunction",
+        "category": "system",
+        "severity": "critical",
+        "description": "General system error",
+        "possible_causes": [
+          "Control board issue",
+          "Multiple failures"
+        ],
+        "solutions": [
+          "Full system diagnostic",
+          "Check all components"
+        ],
+        "parts_needed": ["Control board"]
+      },
+      "E5": {
+        "code": "E5",
+        "meaning": "Communication Error",
+        "category": "communication",
+        "severity": "critical",
+        "description": "Communication fault between units",
+        "possible_causes": [
+          "Wiring problem",
+          "Board failure"
+        ],
+        "solutions": [
+          "Check wiring",
+          "Test boards"
+        ],
+        "parts_needed": ["Communication wire", "Control board"]
+      }
+    }
+  },
+  "daikin": {
+    "brand_name": "Daikin",
+    "error_codes": {
+      "A1": {
+        "code": "A1",
+        "meaning": "Indoor PCB Defective",
+        "category": "electrical",
+        "severity": "critical",
+        "description": "Indoor control board failure",
+        "possible_causes": [
+          "Board failure",
+          "Power surge damage"
+        ],
+        "solutions": [
+          "Replace indoor PCB"
+        ],
+        "parts_needed": ["Indoor PCB"]
+      },
+      "A3": {
+        "code": "A3",
+        "meaning": "Drain Level Abnormal",
+        "category": "drain",
+        "severity": "warning",
+        "description": "Condensate drain issue",
+        "possible_causes": [
+          "Clogged drain",
+          "Float switch stuck",
+          "Drain pump failure"
+        ],
+        "solutions": [
+          "Clear drain line",
+          "Check float switch",
+          "Test drain pump"
+        ],
+        "parts_needed": ["Drain pump", "Float switch"]
+      },
+      "A6": {
+        "code": "A6",
+        "meaning": "Fan Motor Abnormal",
+        "category": "blower",
+        "severity": "critical",
+        "description": "Indoor fan motor problem",
+        "possible_causes": [
+          "Motor failure",
+          "Locked rotor",
+          "PCB issue"
+        ],
+        "solutions": [
+          "Check motor",
+          "Test windings",
+          "Replace motor"
+        ],
+        "parts_needed": ["Fan motor"]
+      },
+      "C4": {
+        "code": "C4",
+        "meaning": "Heat Exchanger Temp Sensor",
+        "category": "sensor",
+        "severity": "warning",
+        "description": "Heat exchanger sensor fault",
+        "possible_causes": [
+          "Sensor failure",
+          "Wiring issue"
+        ],
+        "solutions": [
+          "Test sensor",
+          "Replace if faulty"
+        ],
+        "parts_needed": ["Temp sensor"]
+      },
+      "E1": {
+        "code": "E1",
+        "meaning": "Outdoor PCB Defective",
+        "category": "electrical",
+        "severity": "critical",
+        "description": "Outdoor control board failure",
+        "possible_causes": [
+          "Board failure",
+          "Power surge"
+        ],
+        "solutions": [
+          "Replace outdoor PCB"
+        ],
+        "parts_needed": ["Outdoor PCB"]
+      },
+      "E3": {
+        "code": "E3",
+        "meaning": "High Pressure",
+        "category": "refrigerant",
+        "severity": "critical",
+        "description": "High pressure detected",
+        "possible_causes": [
+          "Dirty condenser",
+          "Fan failure",
+          "Overcharge"
+        ],
+        "solutions": [
+          "Clean condenser",
+          "Check fan",
+          "Verify charge"
+        ],
+        "parts_needed": ["Condenser fan motor", "Refrigerant"]
+      },
+      "E5": {
+        "code": "E5",
+        "meaning": "Compressor Overload",
+        "category": "compressor",
+        "severity": "critical",
+        "description": "Compressor thermal protection activated",
+        "possible_causes": [
+          "High amp draw",
+          "Low refrigerant",
+          "Compressor failure"
+        ],
+        "solutions": [
+          "Check amp draw",
+          "Verify charge",
+          "Test compressor"
+        ],
+        "parts_needed": ["Compressor", "Hard start kit"]
+      },
+      "F3": {
+        "code": "F3",
+        "meaning": "Discharge Temp High",
+        "category": "refrigerant",
+        "severity": "critical",
+        "description": "Compressor discharge temp protection",
+        "possible_causes": [
+          "Low charge",
+          "Restriction"
+        ],
+        "solutions": [
+          "Check refrigerant",
+          "Inspect system"
+        ],
+        "parts_needed": ["Refrigerant"]
+      },
+      "L3": {
+        "code": "L3",
+        "meaning": "Electrical Box Temp High",
+        "category": "electrical",
+        "severity": "warning",
+        "description": "High temperature in electrical box",
+        "possible_causes": [
+          "Poor ventilation",
+          "Loose connections"
+        ],
+        "solutions": [
+          "Improve ventilation",
+          "Tighten connections"
+        ],
+        "parts_needed": []
+      },
+      "U4": {
+        "code": "U4",
+        "meaning": "Communication Error",
+        "category": "communication",
+        "severity": "critical",
+        "description": "Indoor/outdoor communication fault",
+        "possible_causes": [
+          "Wiring issue",
+          "Board failure"
+        ],
+        "solutions": [
+          "Check wiring",
+          "Test boards"
+        ],
+        "parts_needed": ["Communication wire", "PCB"]
+      }
+    }
+  },
+  "mitsubishi": {
+    "brand_name": "Mitsubishi",
+    "error_codes": {
+      "E0": {
+        "code": "E0",
+        "meaning": "Remote Controller Signal Error",
+        "category": "communication",
+        "severity": "warning",
+        "description": "Cannot receive remote signal",
+        "possible_causes": [
+          "Remote battery dead",
+          "Signal blocked",
+          "Receiver issue"
+        ],
+        "solutions": [
+          "Replace remote batteries",
+          "Clear obstructions",
+          "Check receiver"
+        ],
+        "parts_needed": ["Remote batteries", "Remote control"]
+      },
+      "E1": {
+        "code": "E1",
+        "meaning": "Remote Controller Board Error",
+        "category": "communication",
+        "severity": "warning",
+        "description": "Remote controller PCB fault",
+        "possible_causes": [
+          "Board failure"
+        ],
+        "solutions": [
+          "Replace remote controller"
+        ],
+        "parts_needed": ["Remote controller"]
+      },
+      "E6": {
+        "code": "E6",
+        "meaning": "Indoor/Outdoor Communication",
+        "category": "communication",
+        "severity": "critical",
+        "description": "Communication error between units",
+        "possible_causes": [
+          "Wiring damage",
+          "Board failure"
+        ],
+        "solutions": [
+          "Check wiring",
+          "Test both boards"
+        ],
+        "parts_needed": ["Communication wire", "Control board"]
+      },
+      "E9": {
+        "code": "E9",
+        "meaning": "Indoor/Outdoor Mismatch",
+        "category": "system",
+        "severity": "critical",
+        "description": "Indoor/outdoor unit mismatch",
+        "possible_causes": [
+          "Wrong equipment paired",
+          "DIP switch error"
+        ],
+        "solutions": [
+          "Verify equipment match",
+          "Check DIP switches"
+        ],
+        "parts_needed": []
+      },
+      "P1": {
+        "code": "P1",
+        "meaning": "Intake Sensor Error",
+        "category": "sensor",
+        "severity": "warning",
+        "description": "Room temp sensor fault",
+        "possible_causes": [
+          "Sensor failure"
+        ],
+        "solutions": [
+          "Replace sensor"
+        ],
+        "parts_needed": ["Temp sensor"]
+      },
+      "P2": {
+        "code": "P2",
+        "meaning": "Coil Temp Sensor Error",
+        "category": "sensor",
+        "severity": "warning",
+        "description": "Pipe temp sensor fault",
+        "possible_causes": [
+          "Sensor failure"
+        ],
+        "solutions": [
+          "Replace sensor"
+        ],
+        "parts_needed": ["Temp sensor"]
+      },
+      "P4": {
+        "code": "P4",
+        "meaning": "Drain Sensor Error",
+        "category": "sensor",
+        "severity": "warning",
+        "description": "Drain sensor problem",
+        "possible_causes": [
+          "Sensor failure",
+          "Clogged drain"
+        ],
+        "solutions": [
+          "Check drain",
+          "Replace sensor"
+        ],
+        "parts_needed": ["Drain sensor"]
+      },
+      "P6": {
+        "code": "P6",
+        "meaning": "Coil Freeze Protection",
+        "category": "refrigerant",
+        "severity": "warning",
+        "description": "Coil freezing detected",
+        "possible_causes": [
+          "Low airflow",
+          "Low charge",
+          "Dirty filter"
+        ],
+        "solutions": [
+          "Check filter",
+          "Verify charge",
+          "Check airflow"
+        ],
+        "parts_needed": ["Air filter", "Refrigerant"]
+      },
+      "U1": {
+        "code": "U1",
+        "meaning": "High Pressure",
+        "category": "refrigerant",
+        "severity": "critical",
+        "description": "High pressure detected",
+        "possible_causes": [
+          "Dirty condenser",
+          "Fan problem",
+          "Overcharge"
+        ],
+        "solutions": [
+          "Clean condenser",
+          "Check fan",
+          "Verify charge"
+        ],
+        "parts_needed": ["Fan motor", "Refrigerant"]
+      },
+      "U2": {
+        "code": "U2",
+        "meaning": "Low Pressure / Compressor Overcurrent",
+        "category": "refrigerant",
+        "severity": "critical",
+        "description": "Low pressure or compressor issue",
+        "possible_causes": [
+          "Low charge",
+          "Compressor problem"
+        ],
+        "solutions": [
+          "Check refrigerant",
+          "Test compressor"
+        ],
+        "parts_needed": ["Refrigerant", "Compressor"]
+      }
+    }
+  },
+  "common_symptoms": {
+    "no_cooling": {
+      "symptom": "System not cooling",
+      "category": "cooling",
+      "initial_checks": [
+        "Verify thermostat is set to cool and below room temp",
+        "Check if outdoor unit is running",
+        "Check air filter",
+        "Feel air at supply vents"
+      ],
+      "common_causes": [
+        "Dirty air filter restricting airflow",
+        "Refrigerant leak/low charge",
+        "Frozen evaporator coil",
+        "Failed compressor",
+        "Bad capacitor",
+        "Thermostat issue"
+      ],
+      "diagnostic_steps": [
+        "Check system pressures",
+        "Measure temperature split (should be 15-20F)",
+        "Check compressor amp draw",
+        "Inspect capacitors"
+      ]
+    },
+    "no_heating": {
+      "symptom": "System not heating",
+      "category": "heating",
+      "initial_checks": [
+        "Verify thermostat is set to heat and above room temp",
+        "Check if furnace/heat pump is running",
+        "Check air filter",
+        "Check gas supply (gas furnace)"
+      ],
+      "common_causes": [
+        "No gas supply",
+        "Failed ignitor",
+        "Dirty flame sensor",
+        "Heat pump in defrost",
+        "Failed heat strips",
+        "Thermostat issue"
+      ],
+      "diagnostic_steps": [
+        "Verify gas pressure",
+        "Check ignitor glow",
+        "Test flame sensor microamps",
+        "Check heat strip amp draw"
+      ]
+    },
+    "short_cycling": {
+      "symptom": "System turns on and off frequently",
+      "category": "operation",
+      "initial_checks": [
+        "Check air filter",
+        "Verify thermostat location",
+        "Check for blockages"
+      ],
+      "common_causes": [
+        "Dirty air filter",
+        "Refrigerant issue",
+        "Oversized equipment",
+        "Thermostat placement",
+        "Electrical problem"
+      ],
+      "diagnostic_steps": [
+        "Time run cycles",
+        "Check system pressures",
+        "Verify equipment sizing"
+      ]
+    },
+    "strange_noises": {
+      "symptom": "Unusual sounds from equipment",
+      "category": "mechanical",
+      "initial_checks": [
+        "Identify noise location (indoor/outdoor)",
+        "Identify noise type (clicking, buzzing, banging)"
+      ],
+      "common_causes": [
+        "Bad blower motor bearing",
+        "Loose fan blade",
+        "Contactor chatter",
+        "Refrigerant issues",
+        "Loose parts"
+      ],
+      "diagnostic_steps": [
+        "Isolate noise source",
+        "Check motor bearings",
+        "Inspect contactors",
+        "Look for loose hardware"
+      ]
+    },
+    "water_leak": {
+      "symptom": "Water leaking from unit",
+      "category": "drain",
+      "initial_checks": [
+        "Identify leak location",
+        "Check condensate drain",
+        "Check drain pan"
+      ],
+      "common_causes": [
+        "Clogged condensate drain",
+        "Cracked drain pan",
+        "Frozen evaporator (ice melting)",
+        "Improper installation"
+      ],
+      "diagnostic_steps": [
+        "Clear drain line",
+        "Inspect drain pan",
+        "Check for ice formation"
+      ]
+    },
+    "high_bills": {
+      "symptom": "Higher than expected energy bills",
+      "category": "efficiency",
+      "initial_checks": [
+        "Check air filter",
+        "Verify thermostat settings",
+        "Check for obvious issues"
+      ],
+      "common_causes": [
+        "Dirty equipment",
+        "Refrigerant leak",
+        "Duct leaks",
+        "Poor insulation",
+        "Old inefficient equipment"
+      ],
+      "diagnostic_steps": [
+        "Clean all coils",
+        "Check refrigerant charge",
+        "Inspect ductwork",
+        "Calculate equipment efficiency"
+      ]
+    }
+  }
+}

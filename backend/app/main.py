@@ -125,6 +125,9 @@ from app.routers.sms import router as sms_router
 from app.routers.websocket import router as websocket_router
 from app.routers.voice_notes import router as voice_notes_router
 from app.routers.predictions import router as predictions_router
+from app.routers.ai_analysis import router as ai_analysis_router
+from app.routers.troubleshoot import router as troubleshoot_router
+from app.routers.followup import router as followup_router
 
 # API v1 routers
 app.include_router(auth_router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
@@ -146,6 +149,9 @@ app.include_router(dispatch_router, prefix=f"{settings.API_V1_PREFIX}/dispatch",
 app.include_router(sms_router, prefix=f"{settings.API_V1_PREFIX}/sms", tags=["SMS"])
 app.include_router(voice_notes_router, prefix=f"{settings.API_V1_PREFIX}/voice-notes", tags=["Voice Notes"])
 app.include_router(predictions_router, prefix=f"{settings.API_V1_PREFIX}/predictions", tags=["Predictions"])
+app.include_router(ai_analysis_router, prefix=f"{settings.API_V1_PREFIX}/ai", tags=["AI Analysis"])
+app.include_router(troubleshoot_router, prefix=f"{settings.API_V1_PREFIX}/troubleshoot", tags=["Troubleshooting"])
+app.include_router(followup_router, prefix=f"{settings.API_V1_PREFIX}/followups", tags=["Follow-Ups"])
 app.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
 
 
