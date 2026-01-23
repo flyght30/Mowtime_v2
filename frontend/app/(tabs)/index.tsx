@@ -1,6 +1,6 @@
 /**
  * Dashboard Screen
- * Main overview with today's appointments and quick stats
+ * Main overview with today's appointments and vertical-specific widgets
  */
 
 import React, { useEffect, useState } from 'react';
@@ -16,9 +16,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { useVerticalContext } from '../../contexts/VerticalContext';
+import { useBranding } from '../../contexts/BrandingContext';
 import { api } from '../../services/api';
 import { Card } from '../../components/ui';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
+import {
+  HVACQuickStats,
+  HVACServiceCallsWidget,
+} from '../../components/dashboard/HVACWidgets';
+import {
+  WeatherWidget,
+  RouteSummaryWidget,
+  LawnCareQuickStats,
+} from '../../components/dashboard/LawnCareWidgets';
+import { WidgetErrorBoundary } from '../../components/ErrorBoundary';
 
 interface Stats {
   clients: number;
@@ -42,7 +54,9 @@ interface Appointment {
 }
 
 export default function DashboardScreen() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const { activeVertical, activeVerticalInfo, isVerticalEnabled } = useVerticalContext();
+  const { branding } = useBranding();
   const router = useRouter();
 
   const [stats, setStats] = useState<Stats | null>(null);
@@ -56,7 +70,6 @@ export default function DashboardScreen() {
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch stats and today's appointments in parallel
       const [statsRes, appointmentsRes] = await Promise.all([
         api.get('/businesses/me/stats'),
         api.get('/appointments/today'),
@@ -114,6 +127,161 @@ export default function DashboardScreen() {
     }
   };
 
+  // Render vertical-specific widgets
+  const renderVerticalWidgets = () => {
+    if (activeVertical === 'hvac' && isVerticalEnabled('hvac')) {
+      return (
+        <>
+          <WidgetErrorBoundary widgetName="HVAC Stats">
+            <HVACQuickStats />
+          </WidgetErrorBoundary>
+          <WidgetErrorBoundary widgetName="Service Calls">
+            <HVACServiceCallsWidget />
+          </WidgetErrorBoundary>
+        </>
+      );
+    }
+
+    if (activeVertical === 'lawn_care' && isVerticalEnabled('lawn_care')) {
+      return (
+        <>
+          <WidgetErrorBoundary widgetName="Weather">
+            <WeatherWidget />
+          </WidgetErrorBoundary>
+          <WidgetErrorBoundary widgetName="Route Summary">
+            <RouteSummaryWidget />
+          </WidgetErrorBoundary>
+          <WidgetErrorBoundary widgetName="Lawn Care Stats">
+            <LawnCareQuickStats />
+          </WidgetErrorBoundary>
+        </>
+      );
+    }
+
+    // Default generic stats
+    return (
+      <View style={styles.statsGrid}>
+        <Card style={styles.statCard} onPress={() => router.push('/(tabs)/clients')}>
+          <Ionicons name="people" size={24} color={Colors.primary} />
+          <Text style={styles.statValue}>{stats?.clients || 0}</Text>
+          <Text style={styles.statLabel}>Clients</Text>
+        </Card>
+
+        <Card style={styles.statCard} onPress={() => router.push('/(tabs)/appointments')}>
+          <Ionicons name="calendar" size={24} color={Colors.success} />
+          <Text style={styles.statValue}>{stats?.appointments?.scheduled || 0}</Text>
+          <Text style={styles.statLabel}>Scheduled</Text>
+        </Card>
+
+        <Card style={styles.statCard}>
+          <Ionicons name="construct" size={24} color={Colors.warning} />
+          <Text style={styles.statValue}>{stats?.services || 0}</Text>
+          <Text style={styles.statLabel}>Services</Text>
+        </Card>
+
+        <Card style={styles.statCard}>
+          <Ionicons name="checkmark-circle" size={24} color={Colors.info} />
+          <Text style={styles.statValue}>{stats?.appointments?.completed || 0}</Text>
+          <Text style={styles.statLabel}>Completed</Text>
+        </Card>
+      </View>
+    );
+  };
+
+  // Render vertical-specific quick actions
+  const renderQuickActions = () => {
+    if (activeVertical === 'hvac') {
+      return (
+        <View style={styles.actionsGrid}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/hvac/calculate')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: '#E3F2FD' }]}>
+              <Ionicons name="calculator" size={24} color="#2196F3" />
+            </View>
+            <Text style={styles.actionText}>Load Calculator</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/hvac/quotes')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: '#E8F5E9' }]}>
+              <Ionicons name="document-text" size={24} color="#4CAF50" />
+            </View>
+            <Text style={styles.actionText}>Create Quote</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/hvac/equipment')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: '#FFF3E0' }]}>
+              <Ionicons name="construct" size={24} color="#FF9800" />
+            </View>
+            <Text style={styles.actionText}>Equipment</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/hvac/maintenance')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: '#F3E5F5' }]}>
+              <Ionicons name="calendar" size={24} color="#9C27B0" />
+            </View>
+            <Text style={styles.actionText}>Maintenance</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // Default lawn care / generic actions
+    return (
+      <View style={styles.actionsGrid}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push('/appointment/create')}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: Colors.primary + '20' }]}>
+            <Ionicons name="add" size={24} color={Colors.primary} />
+          </View>
+          <Text style={styles.actionText}>New Appointment</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push('/client/create')}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: Colors.success + '20' }]}>
+            <Ionicons name="person-add" size={24} color={Colors.success} />
+          </View>
+          <Text style={styles.actionText}>Add Client</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push('/routes')}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: Colors.warning + '20' }]}>
+            <Ionicons name="navigate" size={24} color={Colors.warning} />
+          </View>
+          <Text style={styles.actionText}>Daily Route</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push('/analytics')}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: Colors.info + '20' }]}>
+            <Ionicons name="bar-chart" size={24} color={Colors.info} />
+          </View>
+          <Text style={styles.actionText}>View Reports</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
@@ -133,37 +301,15 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Quick Stats */}
-        <View style={styles.statsGrid}>
-          <Card style={styles.statCard} onPress={() => router.push('/(tabs)/clients')}>
-            <Ionicons name="people" size={24} color={Colors.primary} />
-            <Text style={styles.statValue}>{stats?.clients || 0}</Text>
-            <Text style={styles.statLabel}>Clients</Text>
-          </Card>
+        {/* Vertical-Specific Widgets */}
+        {renderVerticalWidgets()}
 
-          <Card style={styles.statCard} onPress={() => router.push('/(tabs)/appointments')}>
-            <Ionicons name="calendar" size={24} color={Colors.success} />
-            <Text style={styles.statValue}>{stats?.appointments?.scheduled || 0}</Text>
-            <Text style={styles.statLabel}>Scheduled</Text>
-          </Card>
-
-          <Card style={styles.statCard}>
-            <Ionicons name="construct" size={24} color={Colors.warning} />
-            <Text style={styles.statValue}>{stats?.services || 0}</Text>
-            <Text style={styles.statLabel}>Services</Text>
-          </Card>
-
-          <Card style={styles.statCard}>
-            <Ionicons name="checkmark-circle" size={24} color={Colors.info} />
-            <Text style={styles.statValue}>{stats?.appointments?.completed || 0}</Text>
-            <Text style={styles.statLabel}>Completed</Text>
-          </Card>
-        </View>
-
-        {/* Today's Appointments */}
+        {/* Today's Appointments - shown for all verticals */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Appointments</Text>
+            <Text style={styles.sectionTitle}>
+              Today's {branding?.text_overrides?.appointments || 'Appointments'}
+            </Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/appointments')}>
               <Text style={styles.seeAll}>See all</Text>
             </TouchableOpacity>
@@ -172,7 +318,9 @@ export default function DashboardScreen() {
           {todayAppointments.length === 0 ? (
             <Card style={styles.emptyCard}>
               <Ionicons name="calendar-outline" size={48} color={Colors.gray300} />
-              <Text style={styles.emptyText}>No appointments today</Text>
+              <Text style={styles.emptyText}>
+                No {branding?.text_overrides?.appointments?.toLowerCase() || 'appointments'} today
+              </Text>
               <TouchableOpacity
                 style={styles.emptyButton}
                 onPress={() => router.push('/(tabs)/appointments')}
@@ -181,7 +329,7 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             </Card>
           ) : (
-            todayAppointments.map((apt) => (
+            todayAppointments.slice(0, 3).map((apt) => (
               <Card key={apt.appointment_id} style={styles.appointmentCard}>
                 <View style={styles.appointmentHeader}>
                   <View style={styles.appointmentTime}>
@@ -225,35 +373,7 @@ export default function DashboardScreen() {
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/appointment/create')}>
-              <View style={[styles.actionIcon, { backgroundColor: Colors.primary + '20' }]}>
-                <Ionicons name="add" size={24} color={Colors.primary} />
-              </View>
-              <Text style={styles.actionText}>New Appointment</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/client/create')}>
-              <View style={[styles.actionIcon, { backgroundColor: Colors.success + '20' }]}>
-                <Ionicons name="person-add" size={24} color={Colors.success} />
-              </View>
-              <Text style={styles.actionText}>Add Client</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/routes')}>
-              <View style={[styles.actionIcon, { backgroundColor: Colors.warning + '20' }]}>
-                <Ionicons name="navigate" size={24} color={Colors.warning} />
-              </View>
-              <Text style={styles.actionText}>Daily Route</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/analytics')}>
-              <View style={[styles.actionIcon, { backgroundColor: Colors.info + '20' }]}>
-                <Ionicons name="bar-chart" size={24} color={Colors.info} />
-              </View>
-              <Text style={styles.actionText}>View Reports</Text>
-            </TouchableOpacity>
-          </View>
+          {renderQuickActions()}
         </View>
       </ScrollView>
     </SafeAreaView>

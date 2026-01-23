@@ -8,6 +8,10 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { BrandingProvider } from '../contexts/BrandingContext';
+import { VerticalProvider } from '../contexts/VerticalContext';
+import { DemoProvider } from '../contexts/DemoContext';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Colors } from '../constants/theme';
 
 // Auth routing guard
@@ -44,16 +48,24 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 // Root layout with providers
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <StatusBar style="auto" />
-      <AuthGuard>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="hvac" options={{ headerShown: false }} />
-        </Stack>
-      </AuthGuard>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrandingProvider>
+          <VerticalProvider>
+            <DemoProvider>
+              <StatusBar style="auto" />
+              <AuthGuard>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="hvac" options={{ headerShown: false }} />
+                </Stack>
+              </AuthGuard>
+            </DemoProvider>
+          </VerticalProvider>
+        </BrandingProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

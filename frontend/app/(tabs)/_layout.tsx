@@ -1,13 +1,58 @@
 /**
  * Tabs Layout
  * Bottom tab navigation for main app screens
+ * Dynamically shows/hides vertical-specific tabs
  */
 
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/theme';
+import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { Colors, BorderRadius, Spacing, Typography } from '../../constants/theme';
+import { useVerticalContext } from '../../contexts/VerticalContext';
+import { useBranding } from '../../contexts/BrandingContext';
 
 export default function TabsLayout() {
+  const router = useRouter();
+  const { activeVertical, activeVerticalInfo, enabledVerticals, businessVerticals } = useVerticalContext();
+  const { branding } = useBranding();
+
+  // Check if HVAC is enabled for this business
+  const hvacEnabled = enabledVerticals.includes('hvac');
+  const showVerticalSwitcher = branding?.show_vertical_switcher && enabledVerticals.length > 1;
+
+  // Get vertical icon based on active vertical
+  const getVerticalIcon = () => {
+    switch (activeVertical) {
+      case 'hvac':
+        return 'thermometer-outline';
+      case 'lawn_care':
+        return 'leaf-outline';
+      default:
+        return 'briefcase-outline';
+    }
+  };
+
+  // Custom header with vertical indicator
+  const renderHeaderRight = () => {
+    if (!showVerticalSwitcher) return null;
+
+    return (
+      <TouchableOpacity
+        style={styles.verticalBadge}
+        onPress={() => router.push('/(tabs)/settings')}
+      >
+        <Ionicons
+          name={getVerticalIcon() as any}
+          size={16}
+          color={activeVerticalInfo.color}
+        />
+        <Text style={[styles.verticalBadgeText, { color: activeVerticalInfo.color }]}>
+          {activeVerticalInfo.name}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <Tabs
       screenOptions={{
@@ -30,6 +75,7 @@ export default function TabsLayout() {
           fontWeight: '600',
           color: Colors.text,
         },
+        headerRight: renderHeaderRight,
       }}
     >
       <Tabs.Screen
@@ -44,7 +90,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="appointments"
         options={{
-          title: 'Appointments',
+          title: branding?.text_overrides?.appointments || 'Appointments',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar-outline" size={size} color={color} />
           ),
@@ -53,12 +99,25 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="clients"
         options={{
-          title: 'Clients',
+          title: branding?.text_overrides?.clients || 'Clients',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" size={size} color={color} />
           ),
         }}
       />
+
+      {/* HVAC Tab - only shown when HVAC is enabled */}
+      <Tabs.Screen
+        name="hvac-hub"
+        options={{
+          title: 'HVAC',
+          href: hvacEnabled ? '/(tabs)/hvac-hub' : null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="thermometer-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
       <Tabs.Screen
         name="settings"
         options={{
@@ -71,3 +130,20 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  verticalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.gray100,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    marginRight: Spacing.md,
+  },
+  verticalBadgeText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.medium,
+    marginLeft: 4,
+  },
+});

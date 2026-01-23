@@ -17,7 +17,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { useVerticalContext, VerticalInfo } from '../../contexts/VerticalContext';
+import { useBranding } from '../../contexts/BrandingContext';
+import { useDemo, DEMO_BUSINESSES, DemoBusinessType } from '../../contexts/DemoContext';
 import { api } from '../../services/api';
 import { Card, Button } from '../../components/ui';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
@@ -96,7 +100,27 @@ interface IntegrationsResponse {
 }
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const { user, logout } = useAuth();
+  const {
+    activeVertical,
+    businessVerticals,
+    enabledVerticals,
+    setActiveVertical,
+    enableVertical,
+    disableVertical,
+  } = useVerticalContext();
+  const { branding } = useBranding();
+  const {
+    isDemoMode,
+    currentDemoBusiness,
+    enableDemoMode,
+    disableDemoMode,
+    switchDemoBusiness,
+    getDemoBusinessInfo,
+    availableDemoBusinesses,
+  } = useDemo();
+
   const [qbStatus, setQbStatus] = useState<QuickBooksStatus | null>(null);
   const [qbLoading, setQbLoading] = useState(false);
   const [syncingClients, setSyncingClients] = useState(false);
@@ -361,6 +385,99 @@ export default function SettingsScreen() {
           </View>
         )}
 
+        {/* Verticals Section */}
+        {(user?.role === 'owner' || user?.role === 'admin') && branding?.show_vertical_switcher && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Service Verticals</Text>
+            <Card style={styles.verticalCard}>
+              <Text style={styles.verticalDescription}>
+                Enable or disable service verticals for your business. Active vertical is highlighted.
+              </Text>
+              {businessVerticals.map((vertical, index) => (
+                <View key={vertical.id}>
+                  {index > 0 && <View style={styles.verticalDivider} />}
+                  <View style={styles.verticalRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.verticalInfo,
+                        activeVertical === vertical.id && styles.verticalInfoActive,
+                      ]}
+                      onPress={() => {
+                        if (vertical.enabled && activeVertical !== vertical.id) {
+                          setActiveVertical(vertical.id);
+                        }
+                      }}
+                      disabled={!vertical.enabled}
+                    >
+                      <View
+                        style={[
+                          styles.verticalIcon,
+                          { backgroundColor: vertical.color + '20' },
+                          !vertical.enabled && styles.verticalIconDisabled,
+                        ]}
+                      >
+                        <Ionicons
+                          name={vertical.icon as any}
+                          size={24}
+                          color={vertical.enabled ? vertical.color : Colors.gray400}
+                        />
+                      </View>
+                      <View style={styles.verticalText}>
+                        <View style={styles.verticalNameRow}>
+                          <Text
+                            style={[
+                              styles.verticalName,
+                              !vertical.enabled && styles.verticalNameDisabled,
+                            ]}
+                          >
+                            {vertical.name}
+                          </Text>
+                          {activeVertical === vertical.id && vertical.enabled && (
+                            <View style={[styles.activeBadge, { backgroundColor: vertical.color }]}>
+                              <Text style={styles.activeBadgeText}>Active</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.verticalDescText}>{vertical.description}</Text>
+                      </View>
+                    </TouchableOpacity>
+                    <Switch
+                      value={vertical.enabled}
+                      onValueChange={(value) => {
+                        if (value) {
+                          enableVertical(vertical.id);
+                        } else {
+                          if (enabledVerticals.length > 1) {
+                            Alert.alert(
+                              'Disable Vertical',
+                              `Are you sure you want to disable ${vertical.name}? You can re-enable it later.`,
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                  text: 'Disable',
+                                  style: 'destructive',
+                                  onPress: () => disableVertical(vertical.id),
+                                },
+                              ]
+                            );
+                          } else {
+                            Alert.alert(
+                              'Cannot Disable',
+                              'You must have at least one vertical enabled.'
+                            );
+                          }
+                        }
+                      }}
+                      trackColor={{ false: Colors.gray300, true: vertical.color + '60' }}
+                      thumbColor={vertical.enabled ? vertical.color : Colors.gray400}
+                    />
+                  </View>
+                </View>
+              ))}
+            </Card>
+          </View>
+        )}
+
         {/* Integrations Section */}
         {(user?.role === 'owner' || user?.role === 'admin') && (
           <View style={styles.section}>
@@ -563,6 +680,90 @@ export default function SettingsScreen() {
                       Clients can reply CONFIRM or RESCHEDULE
                     </Text>
                   </View>
+                </>
+              )}
+            </Card>
+          </View>
+        )}
+
+        {/* Demo Mode Section - For Testing Multi-Vertical */}
+        {(user?.role === 'owner' || user?.role === 'admin' || __DEV__) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Demo Mode</Text>
+            <Card style={styles.demoCard}>
+              <View style={styles.demoHeader}>
+                <View style={styles.demoToggleRow}>
+                  <View style={styles.demoInfo}>
+                    <Text style={styles.demoTitle}>Enable Demo Mode</Text>
+                    <Text style={styles.demoSubtitle}>
+                      Test switching between business types
+                    </Text>
+                  </View>
+                  <Switch
+                    value={isDemoMode}
+                    onValueChange={(value) => {
+                      if (value) {
+                        enableDemoMode();
+                      } else {
+                        disableDemoMode();
+                      }
+                    }}
+                    trackColor={{ false: Colors.gray300, true: Colors.primary + '60' }}
+                    thumbColor={isDemoMode ? Colors.primary : Colors.gray400}
+                  />
+                </View>
+              </View>
+
+              {isDemoMode && (
+                <>
+                  <View style={styles.demoDivider} />
+                  <Text style={styles.demoSectionLabel}>Select Demo Business</Text>
+                  {availableDemoBusinesses.map((businessType) => {
+                    const business = getDemoBusinessInfo(businessType);
+                    const isSelected = currentDemoBusiness === businessType;
+                    return (
+                      <TouchableOpacity
+                        key={businessType}
+                        style={[
+                          styles.demoBusinessCard,
+                          isSelected && styles.demoBusinessCardSelected,
+                        ]}
+                        onPress={() => switchDemoBusiness(businessType)}
+                      >
+                        <View
+                          style={[
+                            styles.demoBusinessIcon,
+                            { backgroundColor: business.branding.primary_color + '20' },
+                          ]}
+                        >
+                          <Ionicons
+                            name={
+                              businessType === 'hvac'
+                                ? 'thermometer'
+                                : businessType === 'lawn_care'
+                                ? 'leaf'
+                                : 'apps'
+                            }
+                            size={24}
+                            color={business.branding.primary_color}
+                          />
+                        </View>
+                        <View style={styles.demoBusinessInfo}>
+                          <Text style={styles.demoBusinessName}>{business.name}</Text>
+                          <Text style={styles.demoBusinessType}>
+                            {businessType === 'multi_vertical'
+                              ? 'Lawn Care + HVAC'
+                              : business.vertical === 'hvac'
+                              ? 'HVAC Only'
+                              : 'Lawn Care Only'}
+                          </Text>
+                        </View>
+                        {isSelected && (
+                          <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
                 </>
               )}
             </Card>
@@ -999,5 +1200,179 @@ const styles = StyleSheet.create({
   reminderFooterText: {
     fontSize: Typography.fontSize.xs,
     color: Colors.textSecondary,
+  },
+
+  // Vertical Switcher Styles
+  verticalCard: {
+    padding: Spacing.md,
+  },
+
+  verticalDescription: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
+    lineHeight: 20,
+  },
+
+  verticalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+  },
+
+  verticalDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: Spacing.xs,
+  },
+
+  verticalInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: BorderRadius.md,
+    padding: Spacing.xs,
+    marginRight: Spacing.md,
+  },
+
+  verticalInfoActive: {
+    backgroundColor: Colors.gray50,
+  },
+
+  verticalIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.md,
+  },
+
+  verticalIconDisabled: {
+    backgroundColor: Colors.gray100,
+  },
+
+  verticalText: {
+    flex: 1,
+  },
+
+  verticalNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+
+  verticalName: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.text,
+  },
+
+  verticalNameDisabled: {
+    color: Colors.gray400,
+  },
+
+  verticalDescText: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+
+  activeBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+
+  activeBadgeText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.white,
+  },
+
+  // Demo Mode Styles
+  demoCard: {
+    padding: Spacing.md,
+  },
+
+  demoHeader: {
+    marginBottom: 0,
+  },
+
+  demoToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  demoInfo: {
+    flex: 1,
+    marginRight: Spacing.md,
+  },
+
+  demoTitle: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.text,
+  },
+
+  demoSubtitle: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+
+  demoDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: Spacing.md,
+  },
+
+  demoSectionLabel: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
+  },
+
+  demoBusinessCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.gray50,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+
+  demoBusinessCardSelected: {
+    backgroundColor: Colors.primary + '10',
+    borderColor: Colors.primary,
+  },
+
+  demoBusinessIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.md,
+  },
+
+  demoBusinessInfo: {
+    flex: 1,
+  },
+
+  demoBusinessName: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.text,
+  },
+
+  demoBusinessType: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
 });
