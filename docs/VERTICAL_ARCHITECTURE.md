@@ -165,14 +165,22 @@ Each vertical registers its own routes under its prefix:
 - `GET /programs` - List lawn programs
 
 **HVAC** (`/api/v1/hvac`):
-- `POST /calculate-load` - Calculate HVAC load
-- `GET /load-calculations` - List calculations
+- `POST /calculate-load` - Calculate HVAC load (Manual J simplified)
+- `GET /climate-zone/zip/{zip}` - Climate zone lookup
 - `GET /equipment` - List equipment catalog
 - `POST /equipment` - Add equipment
-- `POST /quotes` - Create job quote
+- `POST /quotes` - Create job quote (with JOB-YYYY-NNNN)
 - `GET /quotes` - List quotes
+- `GET /quotes/{id}` - Get quote details
+- `PUT /quotes/{id}` - Update quote (line items, totals)
+- `PATCH /quotes/{id}/status` - Update quote status
+- `GET /quotes/{id}/pdf` - Generate PDF quote
+- `POST /quotes/{id}/send` - Send via email/SMS
+- `DELETE /quotes/{id}` - Delete draft quote
 - `GET /maintenance` - List maintenance contracts
-- `GET /maintenance/due` - Get due maintenance
+- `POST /maintenance` - Create maintenance contract
+- `GET /refrigerant` - Refrigerant logs
+- `GET /inventory` - Parts inventory
 
 ## Adding a New Vertical
 
@@ -297,12 +305,26 @@ Primary vertical for MowTime. Includes:
 - Route optimization
 
 ### HVAC (`hvac`)
-Full HVAC contractor features:
-- Load calculator (simplified Manual J)
-- Equipment catalog (Good/Better/Best tiers)
-- Job quoting with margins
-- Maintenance contracts
-- Refrigerant tracking
+Full HVAC contractor features (TheWorx/Duculator integration):
+- **Load Calculator**: Simplified Manual J with property details → BTU/tons/CFM
+- **Equipment Catalog**: Good/Better/Best tiers with auto-matching
+- **Pricing Engine**: Configurable labor rates, overhead%, profit margins
+- **Quote Builder**: Editable line items with auto-calculated totals
+- **Job Numbering**: JOB-YYYY-NNNN format with atomic sequence
+- **PDF Generation**: Professional quotes for customers
+- **Maintenance Contracts**: Service agreements with scheduling
+- **Refrigerant Tracking**: EPA compliance logging
+- **Inventory Management**: Parts and materials tracking
+
+**Frontend Screens**:
+- `/hvac` - HVAC Dashboard
+- `/hvac/calculate` - Load Calculator
+- `/hvac/equipment` - Equipment Catalog
+- `/hvac/quotes` - Quote List
+- `/hvac/quotes/[id]` - Quote Detail (editable line items)
+- `/hvac/maintenance` - Maintenance Contracts
+- `/hvac/inventory` - Parts Inventory
+- `/settings/pricing` - Pricing Settings
 
 ## Future Verticals (Planned)
 

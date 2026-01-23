@@ -77,7 +77,47 @@ App
 Started: 2026-01-23
 Completed: 2026-01-23
 
+---
+
+## Phase 1 (TheWorx Foundation) - Also Completed
+
+Integrated TheWorx HVAC platform features into ServicePro HVAC vertical.
+
+### Completed Tasks
+
+#### Pricing Settings Page
+- [x] Created `/frontend/app/settings/pricing.tsx`
+- [x] Labor rate configuration (install tech, helper)
+- [x] Overhead, profit margin, tax rate settings
+- [x] Real-time sample job calculation preview
+- [x] Saves to `config.vertical_configs.hvac.*`
+
+#### Job Number Format (JOB-YYYY-NNNN)
+- [x] Added `job_number_sequence` to Business model
+- [x] Atomic increment on quote creation
+- [x] Job number displayed in quote detail
+
+#### Line Item Editor
+- [x] Updated `/frontend/app/hvac/quotes/[id].tsx`
+- [x] Tap to edit line items (draft quotes only)
+- [x] Long-press to delete
+- [x] Add new line items via modal
+- [x] Auto-recalculate totals
+- [x] Unsaved changes indicator
+- [x] PUT `/hvac/quotes/{id}` for persistence
+
+#### Backend Enhancements
+- [x] PATCH `/api/v1/businesses/me` for deep nested config updates
+- [x] `updateQuote` function in `hvacApi.ts`
+- [x] QuoteResponse includes `job_number` field
+
+### Documentation
+- [x] Created `/phase-1-completion.md` with full details
+
+---
+
 ## Next Steps
 - Run `npm install` in frontend to enable TypeScript checking
 - Test vertical switching in development
 - Test demo mode for multi-vertical demonstrations
+- **Phase 2: Dispatch** - Technician scheduling, route optimization
