@@ -303,7 +303,7 @@ async def calculate_hvac_load(
 
     # Get recommended equipment from catalog
     recommended_equipment = []
-    if Database.db:
+    if Database.db is not None:
         # Find matching equipment for each tier
         for tier in ["good", "better", "best"]:
             ac = await Database.db.hvac_equipment.find_one({
