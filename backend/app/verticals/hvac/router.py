@@ -305,14 +305,19 @@ async def calculate_hvac_load(
     recommended_equipment = []
     if Database.db is not None:
         # Find matching equipment for each tier
+        # Use range matching for tonnage (within 0.5 tons)
         for tier in ["good", "better", "best"]:
             ac = await Database.db.hvac_equipment.find_one({
                 "business_id": business.business_id,
                 "category": "air_conditioner",
                 "tier": tier,
-                "capacity_tons": recommended_tons,
+                "capacity_tons": {
+                    "$gte": recommended_tons - 0.5,
+                    "$lte": recommended_tons + 0.5
+                },
                 "is_active": True,
-            })
+            }, sort=[("capacity_tons", -1)])  # Get the largest available
+            
             furnace = await Database.db.hvac_equipment.find_one({
                 "business_id": business.business_id,
                 "category": "furnace",
