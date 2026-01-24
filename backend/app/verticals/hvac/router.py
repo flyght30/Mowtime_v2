@@ -307,7 +307,7 @@ async def calculate_hvac_load(
 
     # Get recommended equipment from catalog
     recommended_equipment = []
-    if Database.db is not None:
+    if db is not None:
         logger.info(f"Looking for equipment: business_id={business.business_id}, recommended_tons={recommended_tons}")
         
         # Find matching equipment for each tier
@@ -325,10 +325,10 @@ async def calculate_hvac_load(
             }
             logger.info(f"AC query for {tier}: {query_ac}")
             
-            ac = await Database.db.hvac_equipment.find_one(query_ac)
+            ac = await db.hvac_equipment.find_one(query_ac)
             logger.info(f"AC result for {tier}: {ac.get('name') if ac else 'None'}")
             
-            furnace = await Database.db.hvac_equipment.find_one({
+            furnace = await db.hvac_equipment.find_one({
                 "business_id": business.business_id,
                 "category": "furnace",
                 "tier": tier,
@@ -373,8 +373,8 @@ async def calculate_hvac_load(
         "created_at": now,
     }
 
-    if Database.db is not None:
-        await Database.db.hvac_load_calcs.insert_one(calc_record)
+    if db is not None:
+        await db.hvac_load_calcs.insert_one(calc_record)
 
     return LoadCalculationResult(
         calc_id=calc_id,
