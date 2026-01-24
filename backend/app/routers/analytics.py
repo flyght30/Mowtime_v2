@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.database import get_database
 from app.middleware.auth import get_current_user, get_business_context, BusinessContext
 from app.models.user import User
-from app.models.common import SingleResponse
+from app.schemas.common import SingleResponse
 from app.services.analytics_service import AnalyticsService
 
 router = APIRouter()
