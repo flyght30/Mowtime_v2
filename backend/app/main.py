@@ -135,6 +135,8 @@ from app.routers.purchase_orders import router as purchase_orders_router
 from app.routers.costing import router as costing_router
 from app.routers.integrations import router as integrations_router
 from app.routers.webhooks import router as webhooks_router
+from app.routers.analytics import router as analytics_router
+from app.routers.reports import router as reports_router
 
 # API v1 routers
 app.include_router(auth_router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
@@ -166,6 +168,8 @@ app.include_router(purchase_orders_router, prefix=f"{settings.API_V1_PREFIX}/pur
 app.include_router(costing_router, prefix=f"{settings.API_V1_PREFIX}/costing", tags=["Job Costing"])
 app.include_router(integrations_router, prefix=f"{settings.API_V1_PREFIX}/integrations", tags=["Integrations"])
 app.include_router(webhooks_router, prefix=f"{settings.API_V1_PREFIX}/webhooks", tags=["Webhooks"])
+app.include_router(analytics_router, prefix=f"{settings.API_V1_PREFIX}/analytics", tags=["Analytics"])
+app.include_router(reports_router, prefix=f"{settings.API_V1_PREFIX}", tags=["Reports"])
 app.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
 
 

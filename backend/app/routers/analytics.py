@@ -10,8 +10,10 @@ from datetime import date, datetime, timedelta
 from pydantic import BaseModel
 
 from app.database import get_database
-from app.middleware.auth import get_current_user
+from app.middleware.auth import get_current_user, get_business_context, BusinessContext
 from app.models.user import User
+from app.models.common import SingleResponse
+from app.services.analytics_service import AnalyticsService
 
 router = APIRouter()
 
@@ -638,3 +640,235 @@ async def get_invoice_aging(
             "buckets": buckets
         }
     }
+
+
+# ============== Phase 9 Endpoints ==============
+
+
+@router.get(
+    "/dashboard",
+    response_model=SingleResponse[dict],
+    summary="Get dashboard KPIs"
+)
+async def get_dashboard(
+    period: str = Query("week", description="Period: day, week, month, quarter"),
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get dashboard overview with KPIs, revenue, pipeline, and performance"""
+    service = AnalyticsService(db, ctx.business_id)
+    metrics = await service.get_dashboard_metrics(period)
+    return SingleResponse(data=metrics)
+
+
+@router.get(
+    "/revenue/trend",
+    response_model=SingleResponse[dict],
+    summary="Get revenue trend data"
+)
+async def get_revenue_trend(
+    start: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    group_by: str = Query("day", description="Group by: day, week, month"),
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get revenue data grouped by period for charts"""
+    if start:
+        start_date = datetime.strptime(start, "%Y-%m-%d")
+    else:
+        start_date = datetime.utcnow() - timedelta(days=30)
+
+    if end:
+        end_date = datetime.strptime(end, "%Y-%m-%d").replace(
+            hour=23, minute=59, second=59
+        )
+    else:
+        end_date = datetime.utcnow()
+
+    service = AnalyticsService(db, ctx.business_id)
+    data = await service.get_revenue_by_period(start_date, end_date, group_by)
+    return SingleResponse(data=data)
+
+
+@router.get(
+    "/revenue/by-type",
+    response_model=SingleResponse[dict],
+    summary="Get revenue by job type"
+)
+async def get_revenue_by_job_type(
+    start: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get revenue breakdown by job type"""
+    if start:
+        start_date = datetime.strptime(start, "%Y-%m-%d")
+    else:
+        start_date = datetime.utcnow() - timedelta(days=90)
+
+    if end:
+        end_date = datetime.strptime(end, "%Y-%m-%d").replace(
+            hour=23, minute=59, second=59
+        )
+    else:
+        end_date = datetime.utcnow()
+
+    service = AnalyticsService(db, ctx.business_id)
+    data = await service.get_revenue_by_job_type(start_date, end_date)
+    return SingleResponse(data=data)
+
+
+@router.get(
+    "/technicians",
+    response_model=SingleResponse[dict],
+    summary="Get technician performance"
+)
+async def get_technician_performance(
+    period: str = Query("month", description="Period: week, month, quarter, year"),
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get performance metrics by technician"""
+    now = datetime.utcnow()
+
+    if period == "week":
+        start_date = now - timedelta(days=7)
+    elif period == "month":
+        start_date = now - timedelta(days=30)
+    elif period == "quarter":
+        start_date = now - timedelta(days=90)
+    elif period == "year":
+        start_date = now - timedelta(days=365)
+    else:
+        start_date = now - timedelta(days=30)
+
+    service = AnalyticsService(db, ctx.business_id)
+    technicians = await service.get_technician_performance(start_date, now)
+
+    return SingleResponse(data={
+        "technicians": technicians,
+        "period": {
+            "start": start_date.isoformat(),
+            "end": now.isoformat()
+        }
+    })
+
+
+@router.get(
+    "/jobs/by-type",
+    response_model=SingleResponse[dict],
+    summary="Get job analytics by type"
+)
+async def get_jobs_analytics(
+    period: str = Query("month", description="Period: week, month, quarter"),
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get job analytics grouped by type"""
+    now = datetime.utcnow()
+
+    if period == "week":
+        start_date = now - timedelta(days=7)
+    elif period == "month":
+        start_date = now - timedelta(days=30)
+    elif period == "quarter":
+        start_date = now - timedelta(days=90)
+    else:
+        start_date = now - timedelta(days=30)
+
+    service = AnalyticsService(db, ctx.business_id)
+    data = await service.get_revenue_by_job_type(start_date, now)
+
+    return SingleResponse(data=data)
+
+
+@router.get(
+    "/forecast",
+    response_model=SingleResponse[dict],
+    summary="Get revenue forecast"
+)
+async def get_forecast(
+    days: int = Query(90, ge=7, le=365, description="Forecast days"),
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get cash flow and revenue forecast based on historical data"""
+    service = AnalyticsService(db, ctx.business_id)
+    forecast = await service.get_cash_flow_forecast(days)
+    return SingleResponse(data=forecast)
+
+
+@router.get(
+    "/ar-aging",
+    response_model=SingleResponse[dict],
+    summary="Get accounts receivable aging"
+)
+async def get_ar_aging_report(
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get accounts receivable aging report"""
+    service = AnalyticsService(db, ctx.business_id)
+    aging = await service.get_ar_aging()
+    return SingleResponse(data=aging)
+
+
+@router.get(
+    "/customers/metrics",
+    response_model=SingleResponse[dict],
+    summary="Get customer metrics"
+)
+async def get_customer_metrics(
+    period: str = Query("year", description="Period: quarter, year"),
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get customer acquisition and retention metrics"""
+    now = datetime.utcnow()
+
+    if period == "quarter":
+        start_date = now - timedelta(days=90)
+    else:
+        start_date = now - timedelta(days=365)
+
+    service = AnalyticsService(db, ctx.business_id)
+    data = await service.get_customer_metrics(start_date, now)
+    return SingleResponse(data=data)
+
+
+@router.get(
+    "/executive-summary",
+    response_model=SingleResponse[dict],
+    summary="Get executive summary"
+)
+async def get_executive_summary(
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get complete analytics summary for executive view"""
+    service = AnalyticsService(db, ctx.business_id)
+    now = datetime.utcnow()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Gather all metrics
+    dashboard = await service.get_dashboard_metrics("month")
+    monthly_revenue = await service.get_revenue_by_period(month_start, now, "day")
+    yearly_revenue = await service.get_revenue_by_period(year_start, now, "month")
+    job_types = await service.get_revenue_by_job_type(month_start, now)
+    technicians = await service.get_technician_performance(month_start, now)
+    forecast = await service.get_cash_flow_forecast(30)
+    ar_aging = await service.get_ar_aging()
+
+    return SingleResponse(data={
+        "dashboard": dashboard,
+        "monthly_revenue": monthly_revenue,
+        "yearly_revenue": yearly_revenue,
+        "job_types": job_types,
+        "top_technicians": technicians[:5] if len(technicians) > 5 else technicians,
+        "forecast_30_day": forecast["revenue_forecast"]["30_day"],
+        "ar_aging": ar_aging,
+        "generated_at": now.isoformat()
+    })
