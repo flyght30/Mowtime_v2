@@ -194,6 +194,15 @@ export async function apiRequest<T = any>(
 
     // Handle both direct data and wrapped responses
     if (data.success !== undefined) {
+      // If the backend response has success field but no data field,
+      // wrap the entire response as data (except success field)
+      if (data.data === undefined && data.success) {
+        const { success, ...restData } = data;
+        return {
+          success: true,
+          data: restData as T,
+        };
+      }
       return data;
     }
 
