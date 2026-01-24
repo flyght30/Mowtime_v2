@@ -216,3 +216,18 @@ async def get_business_context(
     Dependency to get business context for scoped queries
     """
     return BusinessContext(current_user, db)
+
+
+
+async def get_current_business_id(
+    current_user: User = Depends(get_current_user)
+) -> str:
+    """
+    Dependency to get current user's business_id
+    """
+    if not current_user.business_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "NO_BUSINESS", "message": "User is not associated with any business"}
+        )
+    return current_user.business_id
