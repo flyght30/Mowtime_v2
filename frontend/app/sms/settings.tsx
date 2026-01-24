@@ -64,7 +64,7 @@ export default function SMSSettingsScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
@@ -72,7 +72,7 @@ export default function SMSSettingsScreen() {
   if (!settings) {
     return (
       <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle-outline" size={64} color={colors.textSecondary} />
+        <Ionicons name="alert-circle-outline" size={64} color={Colors.textSecondary} />
         <Text style={styles.errorText}>Failed to load settings</Text>
       </View>
     );
@@ -85,7 +85,7 @@ export default function SMSSettingsScreen() {
         <View style={styles.section}>
           <View style={styles.masterSwitch}>
             <View style={styles.switchContent}>
-              <Ionicons name="chatbubbles" size={28} color={colors.primary} />
+              <Ionicons name="chatbubbles" size={28} color={Colors.primary} />
               <View style={styles.switchText}>
                 <Text style={styles.masterLabel}>SMS Notifications</Text>
                 <Text style={styles.masterDescription}>
@@ -96,8 +96,8 @@ export default function SMSSettingsScreen() {
             <Switch
               value={settings.enabled}
               onValueChange={(value) => updateSetting('enabled', value)}
-              trackColor={{ false: colors.border, true: colors.primaryLight }}
-              thumbColor={settings.enabled ? colors.primary : colors.textSecondary}
+              trackColor={{ false: Colors.border, true: Colors.primaryLight }}
+              thumbColor={settings.enabled ? Colors.primary : Colors.textSecondary}
             />
           </View>
         </View>
@@ -169,7 +169,7 @@ export default function SMSSettingsScreen() {
                   }
                 }}
               >
-                <Ionicons name="remove" size={20} color={colors.text} />
+                <Ionicons name="remove" size={20} color={Colors.text} />
               </TouchableOpacity>
               <Text style={styles.reminderValue}>{settings.reminder_hours}</Text>
               <TouchableOpacity
@@ -180,7 +180,7 @@ export default function SMSSettingsScreen() {
                   }
                 }}
               >
-                <Ionicons name="add" size={20} color={colors.text} />
+                <Ionicons name="add" size={20} color={Colors.text} />
               </TouchableOpacity>
             </View>
           </View>
@@ -199,7 +199,7 @@ export default function SMSSettingsScreen() {
             multiline
             maxLength={160}
             placeholder="You have been unsubscribed..."
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={Colors.textSecondary}
             editable={settings.enabled}
           />
           <Text style={styles.charCount}>
@@ -213,7 +213,7 @@ export default function SMSSettingsScreen() {
           onPress={() => router.push('/sms/templates')}
         >
           <View style={styles.linkContent}>
-            <Ionicons name="document-text" size={24} color={colors.primary} />
+            <Ionicons name="document-text" size={24} color={Colors.primary} />
             <View style={styles.linkText}>
               <Text style={styles.linkTitle}>Message Templates</Text>
               <Text style={styles.linkDescription}>
@@ -221,7 +221,7 @@ export default function SMSSettingsScreen() {
               </Text>
             </View>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
         </TouchableOpacity>
       </ScrollView>
 
@@ -234,7 +234,7 @@ export default function SMSSettingsScreen() {
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator color={colors.white} />
+              <ActivityIndicator color={Colors.white} />
             ) : (
               <Text style={styles.saveButtonText}>Save Changes</Text>
             )}
@@ -266,8 +266,8 @@ function SettingRow({ label, description, value, onChange, disabled }: SettingRo
         value={value}
         onValueChange={onChange}
         disabled={disabled}
-        trackColor={{ false: colors.border, true: colors.primaryLight }}
-        thumbColor={value ? colors.primary : colors.textSecondary}
+        trackColor={{ false: Colors.border, true: Colors.primaryLight }}
+        thumbColor={value ? Colors.primary : Colors.textSecondary}
       />
     </View>
   );
@@ -276,35 +276,35 @@ function SettingRow({ label, description, value, onChange, disabled }: SettingRo
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: Colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: Colors.background,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: Colors.background,
   },
   errorText: {
-    fontSize: typography.sizes.md,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
+    fontSize: Typography.fontSize.md,
+    color: Colors.textSecondary,
+    marginTop: Spacing.md,
   },
   content: {
-    padding: spacing.md,
+    padding: Spacing.md,
     paddingBottom: 100,
   },
   section: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    ...shadows.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    ...Shadows.sm,
   },
   disabled: {
     opacity: 0.5,
@@ -320,56 +320,56 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   switchText: {
-    marginLeft: spacing.md,
+    marginLeft: Spacing.md,
   },
   masterLabel: {
-    fontSize: typography.sizes.lg,
+    fontSize: Typography.fontSize.lg,
     fontWeight: '600',
-    color: colors.text,
+    color: Colors.text,
   },
   masterDescription: {
-    fontSize: typography.sizes.sm,
-    color: colors.textSecondary,
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
     marginTop: 2,
   },
   sectionTitle: {
-    fontSize: typography.sizes.md,
+    fontSize: Typography.fontSize.md,
     fontWeight: '600',
-    color: colors.text,
+    color: Colors.text,
     marginBottom: 4,
   },
   sectionDescription: {
-    fontSize: typography.sizes.sm,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
   },
   settingsList: {
-    marginTop: spacing.sm,
+    marginTop: Spacing.sm,
   },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
+    paddingVertical: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: Colors.border,
   },
   settingContent: {
     flex: 1,
-    marginRight: spacing.md,
+    marginRight: Spacing.md,
   },
   settingLabel: {
-    fontSize: typography.sizes.md,
+    fontSize: Typography.fontSize.md,
     fontWeight: '500',
-    color: colors.text,
+    color: Colors.text,
   },
   settingDescription: {
-    fontSize: typography.sizes.xs,
-    color: colors.textSecondary,
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
     marginTop: 2,
   },
   disabledText: {
-    color: colors.textSecondary,
+    color: Colors.textSecondary,
   },
   reminderRow: {
     flexDirection: 'row',
@@ -377,56 +377,56 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   reminderLabel: {
-    fontSize: typography.sizes.md,
-    color: colors.text,
+    fontSize: Typography.fontSize.md,
+    color: Colors.text,
   },
   reminderInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: Spacing.md,
   },
   reminderButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.background,
+    backgroundColor: Colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: Colors.border,
   },
   reminderValue: {
-    fontSize: typography.sizes.xl,
+    fontSize: Typography.fontSize.xl,
     fontWeight: '700',
-    color: colors.text,
+    color: Colors.text,
     minWidth: 40,
     textAlign: 'center',
   },
   optOutInput: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    fontSize: typography.sizes.md,
-    color: colors.text,
+    backgroundColor: Colors.background,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: Typography.fontSize.md,
+    color: Colors.text,
     minHeight: 80,
     textAlignVertical: 'top',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: Colors.border,
   },
   charCount: {
-    fontSize: typography.sizes.xs,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
+    marginTop: Spacing.xs,
     textAlign: 'right',
   },
   linkCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    ...shadows.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    ...Shadows.sm,
   },
   linkContent: {
     flexDirection: 'row',
@@ -434,16 +434,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   linkText: {
-    marginLeft: spacing.md,
+    marginLeft: Spacing.md,
   },
   linkTitle: {
-    fontSize: typography.sizes.md,
+    fontSize: Typography.fontSize.md,
     fontWeight: '600',
-    color: colors.text,
+    color: Colors.text,
   },
   linkDescription: {
-    fontSize: typography.sizes.sm,
-    color: colors.textSecondary,
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
     marginTop: 2,
   },
   saveContainer: {
@@ -451,20 +451,20 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
+    padding: Spacing.md,
+    backgroundColor: Colors.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: Colors.border,
   },
   saveButton: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
     alignItems: 'center',
   },
   saveButtonText: {
-    color: colors.white,
-    fontSize: typography.sizes.md,
+    color: Colors.white,
+    fontSize: Typography.fontSize.md,
     fontWeight: '600',
   },
 });

@@ -110,14 +110,14 @@ export default function SMSConversationsScreen() {
         </Text>
       </View>
 
-      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+      <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
     </TouchableOpacity>
   );
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
@@ -138,7 +138,7 @@ export default function SMSConversationsScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.success }]}>
+            <Text style={[styles.statValue, { color: Colors.success }]}>
               {stats.delivery_rate}%
             </Text>
             <Text style={styles.statLabel}>Delivered</Text>
@@ -148,11 +148,11 @@ export default function SMSConversationsScreen() {
 
       {/* Search */}
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+        <Ionicons name="search" size={20} color={Colors.textSecondary} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search conversations..."
-          placeholderTextColor={colors.textSecondary}
+          placeholderTextColor={Colors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -164,14 +164,14 @@ export default function SMSConversationsScreen() {
           style={styles.actionButton}
           onPress={() => router.push('/sms/settings')}
         >
-          <Ionicons name="settings-outline" size={20} color={colors.primary} />
+          <Ionicons name="settings-outline" size={20} color={Colors.primary} />
           <Text style={styles.actionText}>Settings</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => router.push('/sms/templates')}
         >
-          <Ionicons name="document-text-outline" size={20} color={colors.primary} />
+          <Ionicons name="document-text-outline" size={20} color={Colors.primary} />
           <Text style={styles.actionText}>Templates</Text>
         </TouchableOpacity>
       </View>
@@ -186,13 +186,13 @@ export default function SMSConversationsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={[Colors.primary]}
+            tintColor={Colors.primary}
           />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="chatbubbles-outline" size={64} color={colors.textSecondary} />
+            <Ionicons name="chatbubbles-outline" size={64} color={Colors.textSecondary} />
             <Text style={styles.emptyTitle}>No Conversations</Text>
             <Text style={styles.emptyText}>
               SMS conversations with customers will appear here
@@ -207,117 +207,117 @@ export default function SMSConversationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: Colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: Colors.background,
   },
   statsBar: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    backgroundColor: Colors.surface,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: Colors.border,
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
   statValue: {
-    fontSize: typography.sizes.xl,
+    fontSize: Typography.fontSize.xl,
     fontWeight: '700',
-    color: colors.text,
+    color: Colors.text,
   },
   statLabel: {
-    fontSize: typography.sizes.xs,
-    color: colors.textSecondary,
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
     marginTop: 2,
   },
   statDivider: {
     width: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.xs,
+    backgroundColor: Colors.border,
+    marginVertical: Spacing.xs,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    margin: spacing.md,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
+    backgroundColor: Colors.surface,
+    margin: Spacing.md,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: Colors.border,
   },
   searchIcon: {
-    marginRight: spacing.sm,
+    marginRight: Spacing.sm,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: spacing.sm,
-    fontSize: typography.sizes.md,
-    color: colors.text,
+    paddingVertical: Spacing.sm,
+    fontSize: Typography.fontSize.md,
+    color: Colors.text,
   },
   actionsRow: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    gap: spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
+    backgroundColor: Colors.surface,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.xs,
+    borderColor: Colors.border,
+    gap: Spacing.xs,
   },
   actionText: {
-    fontSize: typography.sizes.sm,
-    color: colors.primary,
+    fontSize: Typography.fontSize.sm,
+    color: Colors.primary,
     fontWeight: '500',
   },
   listContent: {
-    paddingBottom: spacing.xl,
+    paddingBottom: Spacing.xl,
   },
   conversationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    marginHorizontal: spacing.md,
-    marginVertical: spacing.xs,
-    borderRadius: borderRadius.md,
-    ...shadows.sm,
+    backgroundColor: Colors.surface,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.md,
+    marginVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
+    ...Shadows.sm,
   },
   avatarContainer: {
     position: 'relative',
-    marginRight: spacing.md,
+    marginRight: Spacing.md,
   },
   avatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.primary,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    color: colors.white,
-    fontSize: typography.sizes.md,
+    color: Colors.white,
+    fontSize: Typography.fontSize.md,
     fontWeight: '600',
   },
   unreadBadge: {
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: colors.error,
+    backgroundColor: Colors.error,
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -326,8 +326,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   unreadText: {
-    color: colors.white,
-    fontSize: typography.sizes.xs,
+    color: Colors.white,
+    fontSize: Typography.fontSize.xs,
     fontWeight: '700',
   },
   conversationContent: {
@@ -340,46 +340,46 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   customerName: {
-    fontSize: typography.sizes.md,
+    fontSize: Typography.fontSize.md,
     fontWeight: '500',
-    color: colors.text,
+    color: Colors.text,
   },
   unreadName: {
     fontWeight: '700',
   },
   timeText: {
-    fontSize: typography.sizes.xs,
-    color: colors.textSecondary,
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
   },
   phoneText: {
-    fontSize: typography.sizes.xs,
-    color: colors.textSecondary,
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
     marginBottom: 4,
   },
   lastMessage: {
-    fontSize: typography.sizes.sm,
-    color: colors.textSecondary,
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
   },
   unreadMessage: {
-    color: colors.text,
+    color: Colors.text,
     fontWeight: '500',
   },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xxl * 2,
+    paddingVertical: Spacing.xxl * 2,
   },
   emptyTitle: {
-    fontSize: typography.sizes.lg,
+    fontSize: Typography.fontSize.lg,
     fontWeight: '600',
-    color: colors.text,
-    marginTop: spacing.md,
+    color: Colors.text,
+    marginTop: Spacing.md,
   },
   emptyText: {
-    fontSize: typography.sizes.md,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
+    fontSize: Typography.fontSize.md,
+    color: Colors.textSecondary,
+    marginTop: Spacing.sm,
     textAlign: 'center',
   },
 });

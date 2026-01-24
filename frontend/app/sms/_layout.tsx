@@ -5,8 +5,8 @@ export default function SMSLayout() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: colors.background },
-        headerTintColor: colors.text,
+        headerStyle: { backgroundColor: Colors.background },
+        headerTintColor: Colors.text,
         headerTitleStyle: { fontWeight: '600' },
       }}
     >

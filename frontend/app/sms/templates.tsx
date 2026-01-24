@@ -111,7 +111,7 @@ export default function SMSTemplatesScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
@@ -160,14 +160,14 @@ export default function SMSTemplatesScreen() {
               <Text style={styles.variablesLabel}>
                 Variables: {template.variables.length > 0 ? template.variables.join(', ') : 'None'}
               </Text>
-              <Ionicons name="create-outline" size={20} color={colors.primary} />
+              <Ionicons name="create-outline" size={20} color={Colors.primary} />
             </View>
           </TouchableOpacity>
         ))}
 
         {templates.length === 0 && (
           <View style={styles.emptyContainer}>
-            <Ionicons name="document-text-outline" size={64} color={colors.textSecondary} />
+            <Ionicons name="document-text-outline" size={64} color={Colors.textSecondary} />
             <Text style={styles.emptyTitle}>No Templates</Text>
             <TouchableOpacity
               style={styles.seedButton}
@@ -194,7 +194,7 @@ export default function SMSTemplatesScreen() {
               onPress={() => setEditingTemplate(null)}
               style={styles.closeButton}
             >
-              <Ionicons name="close" size={24} color={colors.text} />
+              <Ionicons name="close" size={24} color={Colors.text} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Edit Template</Text>
             <TouchableOpacity
@@ -203,7 +203,7 @@ export default function SMSTemplatesScreen() {
               style={styles.saveModalButton}
             >
               {saving ? (
-                <ActivityIndicator size="small" color={colors.primary} />
+                <ActivityIndicator size="small" color={Colors.primary} />
               ) : (
                 <Text style={styles.saveModalText}>Save</Text>
               )}
@@ -225,7 +225,7 @@ export default function SMSTemplatesScreen() {
                   style={styles.variablesButton}
                   onPress={() => setShowVariables(!showVariables)}
                 >
-                  <Ionicons name="code" size={18} color={colors.primary} />
+                  <Ionicons name="code" size={18} color={Colors.primary} />
                   <Text style={styles.variablesButtonText}>Insert Variable</Text>
                 </TouchableOpacity>
               </View>
@@ -254,7 +254,7 @@ export default function SMSTemplatesScreen() {
                 multiline
                 maxLength={1600}
                 placeholder="Enter message template..."
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor={Colors.textSecondary}
               />
               <Text style={styles.charCounter}>{editedBody.length}/1600</Text>
             </View>
@@ -284,7 +284,7 @@ export default function SMSTemplatesScreen() {
                 <Ionicons
                   name={editingTemplate?.is_active ? 'pause-circle' : 'play-circle'}
                   size={24}
-                  color={editingTemplate?.is_active ? colors.warning : colors.success}
+                  color={editingTemplate?.is_active ? Colors.warning : Colors.success}
                 />
                 <Text style={styles.toggleText}>
                   {editingTemplate?.is_active ? 'Disable Template' : 'Enable Template'}
@@ -301,32 +301,32 @@ export default function SMSTemplatesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: Colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: Colors.background,
   },
   content: {
-    padding: spacing.md,
-    paddingBottom: spacing.xxl,
+    padding: Spacing.md,
+    paddingBottom: Spacing.xxl,
   },
   headerDescription: {
-    fontSize: typography.sizes.md,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
+    fontSize: Typography.fontSize.md,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
   },
   templateCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    ...shadows.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    ...Shadows.sm,
   },
   templateHeader: {
-    marginBottom: spacing.sm,
+    marginBottom: Spacing.sm,
   },
   templateTitleRow: {
     flexDirection: 'row',
@@ -335,15 +335,15 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   templateName: {
-    fontSize: typography.sizes.md,
+    fontSize: Typography.fontSize.md,
     fontWeight: '600',
-    color: colors.text,
+    color: Colors.text,
     flex: 1,
   },
   statusBadge: {
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
-    borderRadius: borderRadius.sm,
+    borderRadius: BorderRadius.sm,
   },
   activeBadge: {
     backgroundColor: 'rgba(76, 175, 80, 0.1)',
@@ -352,205 +352,205 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(158, 158, 158, 0.1)',
   },
   statusText: {
-    fontSize: typography.sizes.xs,
+    fontSize: Typography.fontSize.xs,
     fontWeight: '600',
   },
   activeText: {
-    color: colors.success,
+    color: Colors.success,
   },
   inactiveText: {
-    color: colors.textSecondary,
+    color: Colors.textSecondary,
   },
   triggerLabel: {
-    fontSize: typography.sizes.xs,
-    color: colors.primary,
+    fontSize: Typography.fontSize.xs,
+    color: Colors.primary,
     fontWeight: '500',
   },
   templateBody: {
-    fontSize: typography.sizes.sm,
-    color: colors.textSecondary,
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
     lineHeight: 20,
-    marginBottom: spacing.sm,
+    marginBottom: Spacing.sm,
   },
   templateFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: spacing.sm,
+    borderTopColor: Colors.border,
+    paddingTop: Spacing.sm,
   },
   variablesLabel: {
-    fontSize: typography.sizes.xs,
-    color: colors.textSecondary,
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xxl * 2,
+    paddingVertical: Spacing.xxl * 2,
   },
   emptyTitle: {
-    fontSize: typography.sizes.lg,
+    fontSize: Typography.fontSize.lg,
     fontWeight: '600',
-    color: colors.text,
-    marginTop: spacing.md,
+    color: Colors.text,
+    marginTop: Spacing.md,
   },
   seedButton: {
-    marginTop: spacing.md,
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
+    marginTop: Spacing.md,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
   },
   seedButtonText: {
-    color: colors.white,
+    color: Colors.white,
     fontWeight: '600',
   },
   // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: Colors.background,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.md,
+    padding: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
+    borderBottomColor: Colors.border,
+    backgroundColor: Colors.surface,
   },
   closeButton: {
-    padding: spacing.xs,
+    padding: Spacing.xs,
   },
   modalTitle: {
-    fontSize: typography.sizes.lg,
+    fontSize: Typography.fontSize.lg,
     fontWeight: '600',
-    color: colors.text,
+    color: Colors.text,
   },
   saveModalButton: {
-    padding: spacing.xs,
+    padding: Spacing.xs,
   },
   saveModalText: {
-    fontSize: typography.sizes.md,
+    fontSize: Typography.fontSize.md,
     fontWeight: '600',
-    color: colors.primary,
+    color: Colors.primary,
   },
   modalContent: {
     flex: 1,
-    padding: spacing.md,
+    padding: Spacing.md,
   },
   templateInfo: {
-    marginBottom: spacing.md,
+    marginBottom: Spacing.md,
   },
   editLabel: {
-    fontSize: typography.sizes.lg,
+    fontSize: Typography.fontSize.lg,
     fontWeight: '600',
-    color: colors.text,
+    color: Colors.text,
   },
   editTrigger: {
-    fontSize: typography.sizes.sm,
-    color: colors.primary,
+    fontSize: Typography.fontSize.sm,
+    color: Colors.primary,
     marginTop: 4,
   },
   editorSection: {
-    marginBottom: spacing.md,
+    marginBottom: Spacing.md,
   },
   editorHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: Spacing.sm,
   },
   editorLabel: {
-    fontSize: typography.sizes.md,
+    fontSize: Typography.fontSize.md,
     fontWeight: '600',
-    color: colors.text,
+    color: Colors.text,
   },
   variablesButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    padding: spacing.xs,
+    gap: Spacing.xs,
+    padding: Spacing.xs,
   },
   variablesButtonText: {
-    fontSize: typography.sizes.sm,
-    color: colors.primary,
+    fontSize: Typography.fontSize.sm,
+    color: Colors.primary,
     fontWeight: '500',
   },
   variablesList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-    padding: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+    padding: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
   },
   variableChip: {
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
   },
   variableChipText: {
-    fontSize: typography.sizes.xs,
-    color: colors.primary,
+    fontSize: Typography.fontSize.xs,
+    color: Colors.primary,
     fontFamily: 'monospace',
   },
   bodyInput: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    fontSize: typography.sizes.md,
-    color: colors.text,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: Typography.fontSize.md,
+    color: Colors.text,
     minHeight: 150,
     textAlignVertical: 'top',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: Colors.border,
   },
   charCounter: {
-    fontSize: typography.sizes.xs,
-    color: colors.textSecondary,
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
     textAlign: 'right',
-    marginTop: spacing.xs,
+    marginTop: Spacing.xs,
   },
   previewSection: {
-    marginBottom: spacing.md,
+    marginBottom: Spacing.md,
   },
   previewLabel: {
-    fontSize: typography.sizes.md,
+    fontSize: Typography.fontSize.md,
     fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.sm,
+    color: Colors.text,
+    marginBottom: Spacing.sm,
   },
   previewBox: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: Colors.border,
     borderStyle: 'dashed',
   },
   previewText: {
-    fontSize: typography.sizes.md,
-    color: colors.text,
+    fontSize: Typography.fontSize.md,
+    color: Colors.text,
     lineHeight: 22,
   },
   actionsSection: {
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: Colors.border,
   },
   toggleButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.sm,
+    gap: Spacing.sm,
+    padding: Spacing.sm,
   },
   toggleText: {
-    fontSize: typography.sizes.md,
-    color: colors.text,
+    fontSize: Typography.fontSize.md,
+    color: Colors.text,
   },
 });
