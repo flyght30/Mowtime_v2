@@ -40,7 +40,7 @@ const MARKER_COLORS = {
 export default function TechRouteScreen() {
   const router = useRouter();
   const { todaysJobs, currentJob, lastLocation, profile, startJob } = useTech();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const [selectedJob, setSelectedJob] = useState<TechJob | null>(null);
 
   // Filter jobs that have coordinates
