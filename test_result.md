@@ -280,3 +280,39 @@ agent_communication:
       APP URL: https://service-hub-334.preview.emergentagent.com
       
       Will test the complete workflow and report any issues found.
+      
+  - agent: "testing"
+    message: |
+      HVAC WORKFLOW TESTING COMPLETE - CRITICAL ISSUES FOUND
+      
+      🔴 CRITICAL FRONTEND FORM SUBMISSION ISSUE:
+      
+      PROBLEM SUMMARY:
+      - Both login and registration forms render correctly
+      - All form fields accept data properly (personal info, business info)
+      - Business owner toggle works and shows HVAC business fields
+      - Backend APIs work perfectly (verified via curl testing)
+      - CRITICAL: Form submission buttons are not clickable/functional
+      
+      DETAILED FINDINGS:
+      
+      ✅ BACKEND VERIFICATION (Working):
+      - Login API: POST /api/v1/auth/login returns valid tokens
+      - Registration API: POST /api/v1/auth/register creates HVAC business owners
+      - Existing user test_hvac_1769226270@example.com verified working
+      - New HVAC business registration successful via API
+      
+      ❌ FRONTEND ISSUES (Broken):
+      - Submit buttons timeout when clicked (30s timeout exceeded)
+      - Enter key submission does not work
+      - Forms stay on same page after submission attempts
+      - No API calls are made from frontend forms
+      
+      IMPACT:
+      - Users cannot register new HVAC businesses through UI
+      - Existing users cannot login through UI
+      - HVAC Hub cannot be tested due to login dependency
+      
+      RECOMMENDATION:
+      Main agent needs to investigate and fix frontend form submission mechanism.
+      The issue appears to be in the form event handling or button click handlers.
