@@ -151,7 +151,7 @@ export default function TechRouteScreen() {
   return (
     <View style={styles.container}>
       {/* Map */}
-      <MapView
+      <ConditionalMapView
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
