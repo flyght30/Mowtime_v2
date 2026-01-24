@@ -238,3 +238,17 @@ agent_communication:
       - HVAC Hub is available in the tabs navigation once logged in
       
       Ready for next task!
+      
+  - agent: "testing"
+    message: |
+      Starting HVAC registration and login workflow testing:
+      
+      TESTING PLAN:
+      1. Test HVAC business owner registration with all required fields
+      2. Verify successful registration and automatic login
+      3. Check HVAC Hub tab visibility and accessibility
+      4. Test logout and login with existing credentials
+      
+      APP URL: https://service-hub-334.preview.emergentagent.com
+      
+      Will test the complete workflow and report any issues found.
