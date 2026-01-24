@@ -5,10 +5,21 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
-import MapView, { Marker, Callout, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import ConditionalMapView, { ConditionalMarker as Marker, PROVIDER_GOOGLE } from '../ConditionalMapView';
+import type { MapViewProps } from '../ConditionalMapView';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { dispatchApi, MapData, TechMapLocation, JobPin } from '../../services/dispatchApi';
+
+// Define necessary types
+type Region = {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+};
+
+type Callout = any; // Use any for Callout since it's not used on web
 
 interface DispatchMapViewProps {
   onTechPress?: (techId: string) => void;
