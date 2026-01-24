@@ -185,7 +185,8 @@ class QuoteResponse(BaseModel):
 async def calculate_hvac_load(
     data: LoadCalculationInput,
     current_user: User = Depends(get_current_user),
-    business: Business = Depends(get_current_business)
+    business: Business = Depends(get_current_business),
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """
     Calculate HVAC cooling and heating load.
