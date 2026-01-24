@@ -229,6 +229,8 @@ async def get_current_business_id(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "NO_BUSINESS", "message": "User is not associated with any business"}
+        )
+    return current_user.business_id
 
 
 async def get_current_business(
@@ -255,6 +257,3 @@ async def get_current_business(
         )
     
     return Business(**business_dict)
-
-        )
-    return current_user.business_id
