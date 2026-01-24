@@ -59,15 +59,12 @@ let Polyline: any = null;
 let PROVIDER_GOOGLE: any = null;
 
 if (Platform.OS !== 'web') {
-  try {
-    const maps = require('react-native-maps');
-    MapView = maps.default;
-    Marker = maps.Marker;
-    Polyline = maps.Polyline;
-    PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
-  } catch (e) {
-    console.warn('react-native-maps not available:', e);
-  }
+  // Only load on native platforms
+  const maps = require('react-native-maps');
+  MapView = maps.default;
+  Marker = maps.Marker;
+  Polyline = maps.Polyline;
+  PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
 }
 
 // Web fallback component
