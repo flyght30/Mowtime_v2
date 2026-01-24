@@ -276,6 +276,8 @@ test_plan:
   stuck_tasks:
     - "HVAC Registration Flow"
     - "HVAC Login Flow"
+    - "HVAC Hub Access"
+    - "HVAC Load Calculator Buttons"
   test_all: false
   test_priority: "stuck_first"
   
