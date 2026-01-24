@@ -30,6 +30,7 @@ class RegisterRequest(BaseModel):
     business_city: Optional[str] = None
     business_state: Optional[str] = Field(None, min_length=2, max_length=2)
     business_zip: Optional[str] = None
+    vertical: Optional[str] = "hvac"  # Service vertical: lawn_care, hvac, plumbing, etc.
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
