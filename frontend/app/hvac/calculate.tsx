@@ -127,8 +127,12 @@ export default function LoadCalculator() {
 
     setLookingUpZip(true);
     try {
+      console.log('🔍 Looking up climate zone for ZIP:', formData.zip_code);
       const res = await hvacApi.getClimateZoneByZip(formData.zip_code);
+      console.log('📡 API Response:', JSON.stringify(res, null, 2));
+      
       if (res.success && res.data) {
+        console.log('✅ Setting climate info');
         setClimateInfo({
           zone: res.data.climate_zone,
           name: res.data.zone_info.name,
@@ -137,9 +141,11 @@ export default function LoadCalculator() {
         });
         updateForm('climate_zone', res.data.climate_zone);
       } else {
+        console.error('❌ Invalid response:', res);
         Alert.alert('Error', 'Could not find climate zone for this ZIP code');
       }
     } catch (error) {
+      console.error('❌ Climate lookup error:', error);
       Alert.alert('Error', 'Failed to look up climate zone');
     } finally {
       setLookingUpZip(false);
