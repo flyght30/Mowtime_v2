@@ -195,7 +195,7 @@ export default function TechRouteScreen() {
             </View>
           </Marker>
         ))}
-      </MapView>
+      </ConditionalMapView>
 
       {/* Summary Bar */}
       <View style={styles.summaryBar}>
