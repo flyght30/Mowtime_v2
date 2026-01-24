@@ -305,21 +305,30 @@ async def calculate_hvac_load(
     recommended_equipment = []
     if Database.db:
         # Find matching equipment for each tier
+        # Use $gte to find equipment >= recommended size, sorted to get smallest match
         for tier in ["good", "better", "best"]:
-            ac = await Database.db.hvac_equipment.find_one({
-                "business_id": business.business_id,
-                "category": "air_conditioner",
-                "tier": tier,
-                "capacity_tons": recommended_tons,
-                "is_active": True,
-            })
-            furnace = await Database.db.hvac_equipment.find_one({
-                "business_id": business.business_id,
-                "category": "furnace",
-                "tier": tier,
-                "capacity_btu": {"$gte": heating_btuh * 0.8},
-                "is_active": True,
-            })
+            # Find AC with capacity >= recommended tons (get smallest that fits)
+            ac = await Database.db.hvac_equipment.find_one(
+                {
+                    "business_id": business.business_id,
+                    "category": "air_conditioner",
+                    "tier": tier,
+                    "capacity_tons": {"$gte": recommended_tons},
+                    "is_active": True,
+                },
+                sort=[("capacity_tons", 1)]  # Sort ascending to get smallest match
+            )
+            # Find furnace with capacity >= heating load
+            furnace = await Database.db.hvac_equipment.find_one(
+                {
+                    "business_id": business.business_id,
+                    "category": "furnace",
+                    "tier": tier,
+                    "capacity_btu": {"$gte": heating_btuh * 0.9},
+                    "is_active": True,
+                },
+                sort=[("capacity_btu", 1)]  # Sort ascending to get smallest match
+            )
 
             if ac and furnace:
                 recommended_equipment.append({
@@ -586,22 +595,31 @@ async def create_quote(
         })
 
         if load_calc:
-            # Get equipment for the tier
-            ac = await Database.db.hvac_equipment.find_one({
-                "business_id": business.business_id,
-                "category": "air_conditioner",
-                "tier": data.tier.value,
-                "capacity_tons": load_calc.get("recommended_ac_tons"),
-                "is_active": True,
-            })
+            # Get equipment for the tier (find smallest that meets requirements)
+            recommended_tons = load_calc.get("recommended_ac_tons", 2.5)
+            heating_btuh = load_calc.get("heating_btuh", 60000)
 
-            furnace = await Database.db.hvac_equipment.find_one({
-                "business_id": business.business_id,
-                "category": "furnace",
-                "tier": data.tier.value,
-                "capacity_btu": {"$gte": load_calc.get("heating_btuh", 0) * 0.8},
-                "is_active": True,
-            })
+            ac = await Database.db.hvac_equipment.find_one(
+                {
+                    "business_id": business.business_id,
+                    "category": "air_conditioner",
+                    "tier": data.tier.value,
+                    "capacity_tons": {"$gte": recommended_tons},
+                    "is_active": True,
+                },
+                sort=[("capacity_tons", 1)]
+            )
+
+            furnace = await Database.db.hvac_equipment.find_one(
+                {
+                    "business_id": business.business_id,
+                    "category": "furnace",
+                    "tier": data.tier.value,
+                    "capacity_btu": {"$gte": heating_btuh * 0.9},
+                    "is_active": True,
+                },
+                sort=[("capacity_btu", 1)]
+            )
 
             if ac:
                 line_items.append(QuoteLineItem(
