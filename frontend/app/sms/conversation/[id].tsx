@@ -135,13 +135,13 @@ export default function ConversationScreen() {
             {isOutbound && (
               <View style={styles.statusContainer}>
                 {item.status === 'delivered' && (
-                  <Ionicons name="checkmark-done" size={14} color={colors.success} />
+                  <Ionicons name="checkmark-done" size={14} color={Colors.success} />
                 )}
                 {item.status === 'sent' && (
                   <Ionicons name="checkmark" size={14} color="rgba(255,255,255,0.7)" />
                 )}
                 {item.status === 'failed' && (
-                  <Ionicons name="alert-circle" size={14} color={colors.error} />
+                  <Ionicons name="alert-circle" size={14} color={Colors.error} />
                 )}
                 {item.status === 'queued' && (
                   <Ionicons name="time" size={14} color="rgba(255,255,255,0.7)" />
@@ -157,7 +157,7 @@ export default function ConversationScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
@@ -165,7 +165,7 @@ export default function ConversationScreen() {
   if (!conversation) {
     return (
       <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle-outline" size={64} color={colors.textSecondary} />
+        <Ionicons name="alert-circle-outline" size={64} color={Colors.textSecondary} />
         <Text style={styles.errorText}>Conversation not found</Text>
       </View>
     );
@@ -196,7 +196,7 @@ export default function ConversationScreen() {
           </Text>
         </View>
         <TouchableOpacity style={styles.callButton}>
-          <Ionicons name="call-outline" size={22} color={colors.primary} />
+          <Ionicons name="call-outline" size={22} color={Colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -210,7 +210,7 @@ export default function ConversationScreen() {
         onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="chatbubble-outline" size={48} color={colors.textSecondary} />
+            <Ionicons name="chatbubble-outline" size={48} color={Colors.textSecondary} />
             <Text style={styles.emptyText}>No messages yet</Text>
           </View>
         }
@@ -221,7 +221,7 @@ export default function ConversationScreen() {
         <TextInput
           style={styles.textInput}
           placeholder="Type a message..."
-          placeholderTextColor={colors.textSecondary}
+          placeholderTextColor={Colors.textSecondary}
           value={messageText}
           onChangeText={setMessageText}
           multiline
@@ -233,9 +233,9 @@ export default function ConversationScreen() {
           disabled={!messageText.trim() || sending}
         >
           {sending ? (
-            <ActivityIndicator size="small" color={colors.white} />
+            <ActivityIndicator size="small" color={Colors.white} />
           ) : (
-            <Ionicons name="send" size={20} color={colors.white} />
+            <Ionicons name="send" size={20} color={Colors.white} />
           )}
         </TouchableOpacity>
       </View>
@@ -253,114 +253,114 @@ export default function ConversationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: Colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: Colors.background,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: Colors.background,
   },
   errorText: {
-    fontSize: typography.sizes.md,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
+    fontSize: Typography.sizes.md,
+    color: Colors.textSecondary,
+    marginTop: Spacing.md,
   },
   customerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
-    backgroundColor: colors.surface,
+    padding: Spacing.md,
+    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: Colors.border,
   },
   avatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.primary,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    color: colors.white,
-    fontSize: typography.sizes.md,
+    color: Colors.white,
+    fontSize: Typography.sizes.md,
     fontWeight: '600',
   },
   customerInfo: {
     flex: 1,
-    marginLeft: spacing.md,
+    marginLeft: Spacing.md,
   },
   customerName: {
-    fontSize: typography.sizes.md,
+    fontSize: Typography.sizes.md,
     fontWeight: '600',
-    color: colors.text,
+    color: Colors.text,
   },
   customerPhone: {
-    fontSize: typography.sizes.sm,
-    color: colors.textSecondary,
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
     marginTop: 2,
   },
   callButton: {
-    padding: spacing.sm,
+    padding: Spacing.sm,
   },
   messagesList: {
-    padding: spacing.md,
-    paddingBottom: spacing.lg,
+    padding: Spacing.md,
+    paddingBottom: Spacing.lg,
   },
   dateHeader: {
     alignItems: 'center',
-    marginVertical: spacing.md,
+    marginVertical: Spacing.md,
   },
   dateHeaderText: {
-    fontSize: typography.sizes.xs,
-    color: colors.textSecondary,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
     overflow: 'hidden',
   },
   messageBubble: {
     maxWidth: '80%',
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    marginVertical: spacing.xs,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    marginVertical: Spacing.xs,
   },
   inboundBubble: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.surface,
+    backgroundColor: Colors.surface,
     borderBottomLeftRadius: 4,
   },
   outboundBubble: {
     alignSelf: 'flex-end',
-    backgroundColor: colors.primary,
+    backgroundColor: Colors.primary,
     borderBottomRightRadius: 4,
   },
   messageText: {
-    fontSize: typography.sizes.md,
-    color: colors.text,
+    fontSize: Typography.sizes.md,
+    color: Colors.text,
     lineHeight: 22,
   },
   outboundText: {
-    color: colors.white,
+    color: Colors.white,
   },
   messageFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    marginTop: spacing.xs,
+    marginTop: Spacing.xs,
     gap: 4,
   },
   timeText: {
-    fontSize: typography.sizes.xs,
-    color: colors.textSecondary,
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
   },
   outboundTime: {
     color: 'rgba(255, 255, 255, 0.7)',
@@ -371,56 +371,56 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xxl * 2,
+    paddingVertical: Spacing.xxl * 2,
   },
   emptyText: {
-    fontSize: typography.sizes.md,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
+    fontSize: Typography.sizes.md,
+    color: Colors.textSecondary,
+    marginTop: Spacing.md,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: spacing.md,
-    backgroundColor: colors.surface,
+    padding: Spacing.md,
+    backgroundColor: Colors.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: spacing.sm,
+    borderTopColor: Colors.border,
+    gap: Spacing.sm,
   },
   textInput: {
     flex: 1,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: typography.sizes.md,
-    color: colors.text,
+    backgroundColor: Colors.background,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    fontSize: Typography.sizes.md,
+    color: Colors.text,
     maxHeight: 100,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: Colors.border,
   },
   sendButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.primary,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: colors.textSecondary,
+    backgroundColor: Colors.textSecondary,
   },
   charCount: {
     position: 'absolute',
     right: 70,
     bottom: 64,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.sm,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
-    borderRadius: borderRadius.sm,
+    borderRadius: BorderRadius.sm,
   },
   charCountText: {
-    fontSize: typography.sizes.xs,
-    color: colors.textSecondary,
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
   },
 });
