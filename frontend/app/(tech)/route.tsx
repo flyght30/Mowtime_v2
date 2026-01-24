@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import ConditionalMapView, { ConditionalMarker as Marker, ConditionalPolyline as Polyline, PROVIDER_GOOGLE } from '../../components/ConditionalMapView';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { useTech } from '../../contexts/TechContext';
 import {
