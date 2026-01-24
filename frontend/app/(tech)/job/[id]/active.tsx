@@ -36,7 +36,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 export default function ActiveJobScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const {
     currentJob,
     profile,
@@ -239,7 +239,7 @@ export default function ActiveJobScreen() {
   return (
     <View style={styles.container}>
       {/* Map */}
-      <MapView
+      <ConditionalMapView
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
@@ -266,7 +266,7 @@ export default function ActiveJobScreen() {
             </View>
           </Marker>
         )}
-      </MapView>
+      </ConditionalMapView>
 
       {/* Status Banner */}
       <View
