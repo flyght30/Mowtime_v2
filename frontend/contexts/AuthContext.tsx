@@ -47,6 +47,7 @@ export interface RegisterData {
   business_city?: string;
   business_state?: string;
   business_zip?: string;
+  vertical?: string; // Service vertical: hvac, lawn_care, plumbing, etc.
 }
 
 export interface AuthState {
