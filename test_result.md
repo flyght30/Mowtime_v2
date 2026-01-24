@@ -359,3 +359,44 @@ agent_communication:
       RECOMMENDATION:
       Main agent needs to investigate and fix frontend form submission mechanism.
       The issue appears to be in the form event handling or button click handlers.
+      
+  - agent: "testing"
+    message: |
+      HVAC LOAD CALCULATOR BUTTON TESTING COMPLETE - BLOCKED BY LOGIN ISSUE
+      
+      🔴 SPECIFIC TEST REQUEST RESULTS:
+      
+      USER REQUEST: Test HVAC Load Calculator buttons (lookup and calculate)
+      - Test Climate Zone Lookup Button with ZIP code "36830"
+      - Test Calculate Button after climate zone lookup succeeds
+      
+      FINDINGS:
+      ❌ CANNOT TEST CALCULATOR BUTTONS - Login dependency blocks access
+      
+      DETAILED ANALYSIS:
+      
+      ✅ WHAT WORKS:
+      - Calculator component exists and is properly implemented (/app/frontend/app/hvac/calculate.tsx)
+      - Look Up and Calculate buttons are coded correctly
+      - Backend HVAC API endpoints are functional (climate zone lookup, load calculation)
+      - Frontend form fields and navigation logic work properly
+      
+      ❌ WHAT'S BLOCKED:
+      - Cannot access /hvac/calculate due to authentication requirement
+      - Direct navigation redirects back to login page
+      - Login form submission is broken (confirmed in multiple tests)
+      - "Sign In" button visible but clicks don't trigger form submission
+      
+      ROOT CAUSE CONFIRMATION:
+      - Login form renders correctly and accepts credentials
+      - "Sign In" button is visible and appears enabled
+      - Multiple click methods tested (regular, force, JavaScript) - all fail
+      - No API calls are made when button is clicked
+      - Backend logs show successful API authentication when called directly
+      
+      IMPACT ON REQUESTED TESTING:
+      - Climate Zone "Look Up" button: CANNOT TEST (blocked by login)
+      - "Calculate" button: CANNOT TEST (blocked by login)
+      - All HVAC functionality: COMPLETELY INACCESSIBLE
+      
+      CRITICAL PRIORITY: Fix frontend form submission mechanism before any HVAC testing can proceed
