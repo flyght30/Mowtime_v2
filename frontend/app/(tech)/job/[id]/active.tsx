@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import ConditionalMapView, { ConditionalMarker as Marker, PROVIDER_GOOGLE } from '../../../../components/ConditionalMapView';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../../../constants/theme';
 import { useTech } from '../../../../contexts/TechContext';
 import {
