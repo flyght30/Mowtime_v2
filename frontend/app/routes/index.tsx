@@ -57,7 +57,7 @@ interface StaffMember {
 
 export default function RoutesScreen() {
   const router = useRouter();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
 
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
@@ -310,7 +310,7 @@ export default function RoutesScreen() {
       {/* Map View */}
       {viewMode === 'map' && (
         <View style={styles.mapContainer}>
-          <MapView
+          <ConditionalMapView
             ref={mapRef}
             style={styles.map}
             provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
@@ -349,7 +349,7 @@ export default function RoutesScreen() {
                 strokeWidth={3}
               />
             )}
-          </MapView>
+          </ConditionalMapView>
         </View>
       )}
 
