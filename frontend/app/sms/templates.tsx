@@ -11,7 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
 import { smsApi, SMSTemplate, TRIGGER_TYPE_LABELS, SMSTriggerType } from '../../services/smsApi';
 
 const AVAILABLE_VARIABLES = [
