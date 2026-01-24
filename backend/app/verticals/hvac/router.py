@@ -311,8 +311,8 @@ async def calculate_hvac_load(
         logger.info(f"Looking for equipment: business_id={business.business_id}, recommended_tons={recommended_tons}")
         
         # Find matching equipment for each tier
-        # Use range matching for tonnage (within 0.5 tons)
         for tier in ["good", "better", "best"]:
+            # Try exact match first (within 0.5 tons)
             query_ac = {
                 "business_id": business.business_id,
                 "category": "air_conditioner",
@@ -323,16 +323,33 @@ async def calculate_hvac_load(
                 },
                 "is_active": True,
             }
-            logger.info(f"AC query for {tier}: {query_ac}")
             
             ac = await db.hvac_equipment.find_one(query_ac)
-            logger.info(f"AC result for {tier}: {ac.get('name') if ac else 'None'}")
+            
+            # If no exact match, find the closest available (within 1.5 tons)
+            if not ac:
+                query_ac_wider = {
+                    "business_id": business.business_id,
+                    "category": "air_conditioner",
+                    "tier": tier,
+                    "capacity_tons": {
+                        "$gte": max(1.5, recommended_tons - 1.5),
+                        "$lte": recommended_tons + 0.5
+                    },
+                    "is_active": True,
+                }
+                # Get the largest available
+                cursor = db.hvac_equipment.find(query_ac_wider).sort("capacity_tons", -1).limit(1)
+                results = await cursor.to_list(length=1)
+                ac = results[0] if results else None
+                if ac:
+                    logger.info(f"Found wider match for {tier}: {ac.get('name')} ({ac.get('capacity_tons')} tons)")
             
             furnace = await db.hvac_equipment.find_one({
                 "business_id": business.business_id,
                 "category": "furnace",
                 "tier": tier,
-                "capacity_btu": {"$gte": heating_btuh * 0.8},
+                "capacity_btu": {"$gte": heating_btuh * 0.7},  # More lenient
                 "is_active": True,
             })
 
