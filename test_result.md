@@ -232,10 +232,11 @@ test_plan:
   current_focus:
     - "HVAC Registration Flow"
     - "HVAC Login Flow"
-    - "HVAC Hub Access"
-  stuck_tasks: []
+  stuck_tasks:
+    - "HVAC Registration Flow"
+    - "HVAC Login Flow"
   test_all: false
-  test_priority: "high_first"
+  test_priority: "stuck_first"
   
 agent_communication:
   - agent: "main"
