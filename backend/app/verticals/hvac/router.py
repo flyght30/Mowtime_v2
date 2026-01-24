@@ -316,7 +316,7 @@ async def calculate_hvac_load(
                     "$lte": recommended_tons + 0.5
                 },
                 "is_active": True,
-            }, sort=[("capacity_tons", -1)])  # Get the largest available
+            })
             
             furnace = await Database.db.hvac_equipment.find_one({
                 "business_id": business.business_id,
