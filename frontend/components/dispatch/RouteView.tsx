@@ -13,10 +13,19 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import ConditionalMapView, { ConditionalMarker as Marker, ConditionalPolyline as Polyline, PROVIDER_GOOGLE } from '../ConditionalMapView';
+import type { MapViewProps } from '../ConditionalMapView';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { dispatchApi, scheduleApi } from '../../services/dispatchApi';
+
+// Define Region type
+type Region = {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+};
 
 interface RouteStop {
   order: number;
