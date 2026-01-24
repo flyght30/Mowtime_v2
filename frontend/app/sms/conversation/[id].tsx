@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../../constants/theme';
+import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../../../constants/theme';
 import {
   smsApi,
   SMSConversation,
