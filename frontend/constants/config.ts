@@ -3,7 +3,9 @@
  */
 
 // API Configuration
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+// Use empty string for base URL to utilize the Kubernetes ingress proxy
+// The ingress redirects /api/* requests to the backend service on port 8001
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || '';
 export const API_VERSION = 'v1';
 export const API_URL = `${API_BASE_URL}/api/${API_VERSION}`;
 
