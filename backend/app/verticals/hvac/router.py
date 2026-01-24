@@ -13,13 +13,16 @@ from datetime import datetime
 from enum import Enum
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel, Field
+from motor.motor_asyncio import AsyncIOMotorDatabase
+import logging
 
 from app.middleware.auth import get_current_user, get_current_business
-from app.database import Database
+from app.database import Database, get_database
 from app.models.user import User
 from app.models.business import Business
 from app.models.common import generate_id
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
