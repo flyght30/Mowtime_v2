@@ -358,7 +358,7 @@ async def calculate_hvac_load(
         "created_at": now,
     }
 
-    if Database.db:
+    if Database.db is not None:
         await Database.db.hvac_load_calcs.insert_one(calc_record)
 
     return LoadCalculationResult(
