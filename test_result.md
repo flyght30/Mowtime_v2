@@ -205,11 +205,11 @@ frontend:
         
   - task: "HVAC Hub Access"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/frontend/app/(tabs)/hvac-hub.tsx"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "testing"
@@ -221,6 +221,47 @@ frontend:
           - HVAC Hub component exists and is properly implemented
           - Tab navigation logic is in place for business owners
           - Cannot verify functionality until login/registration forms are fixed
+      - working: false
+        agent: "testing"
+        comment: |
+          HVAC Hub Access BLOCKED by login form submission issue
+          - Cannot access HVAC Hub due to login dependency
+          - Direct navigation to /hvac routes redirects back to login
+          - All HVAC functionality is inaccessible until login works
+          
+  - task: "HVAC Load Calculator Buttons"
+    implemented: true
+    working: false
+    file: "/app/frontend/app/hvac/calculate.tsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: |
+          HVAC Load Calculator buttons CANNOT BE TESTED due to login dependency
+          
+          SPECIFIC TEST REQUEST RESULTS:
+          - Attempted to test Climate Zone "Look Up" button with ZIP 36830
+          - Attempted to test "Calculate" button after lookup
+          - Cannot reach calculator page due to authentication requirement
+          
+          FINDINGS:
+          ✅ Calculator component exists and is properly implemented
+          ✅ Look Up and Calculate buttons are coded correctly in /app/frontend/app/hvac/calculate.tsx
+          ✅ Backend HVAC API endpoints are available and functional
+          ❌ Cannot access calculator due to login form submission blocking access
+          ❌ Direct navigation to /hvac/calculate redirects to login page
+          
+          ROOT CAUSE: Frontend form submission mechanism is broken
+          - Login form renders correctly and accepts credentials
+          - "Sign In" button is visible and appears clickable
+          - Button clicks (regular, force, JavaScript) do not trigger form submission
+          - No API calls are made when button is clicked
+          - Same issue affects both login and registration forms
+          
+          IMPACT: All HVAC functionality is completely inaccessible
           
 metadata:
   created_by: "main_agent"
