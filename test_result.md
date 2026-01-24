@@ -161,27 +161,47 @@ frontend:
           
   - task: "HVAC Registration Flow"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/frontend/app/(auth)/register.tsx"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "testing"
         comment: "Need to test HVAC business owner registration workflow with all required fields"
+      - working: false
+        agent: "testing"
+        comment: |
+          CRITICAL ISSUE: Frontend form submission not working
+          - Registration form renders correctly and accepts all HVAC business data
+          - All fields fill properly (First Name, Last Name, Email, Phone, Password, Business Info)
+          - Business owner toggle works and shows business fields
+          - Submit button is visible but not clickable via automation
+          - Backend API works perfectly (tested via curl - returns tokens successfully)
+          - Issue is with frontend form submission mechanism, not backend
+          - Forms do not submit when Enter key is pressed or button is clicked
         
   - task: "HVAC Login Flow"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/frontend/app/(auth)/login.tsx"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "testing"
         comment: "Need to test login with HVAC business owner credentials"
+      - working: false
+        agent: "testing"
+        comment: |
+          CRITICAL ISSUE: Frontend login form submission not working
+          - Login form renders correctly and accepts credentials
+          - Existing HVAC user credentials verified working via API (test_hvac_1769226270@example.com)
+          - Backend login API returns valid tokens and user data
+          - Frontend form does not submit when Enter key pressed or button clicked
+          - Same form submission issue as registration
         
   - task: "HVAC Hub Access"
     implemented: true
@@ -194,6 +214,13 @@ frontend:
       - working: "NA"
         agent: "testing"
         comment: "Need to verify HVAC Hub tab is visible and accessible after business owner login"
+      - working: "NA"
+        agent: "testing"
+        comment: |
+          Cannot test HVAC Hub access due to login form submission issue
+          - HVAC Hub component exists and is properly implemented
+          - Tab navigation logic is in place for business owners
+          - Cannot verify functionality until login/registration forms are fixed
           
 metadata:
   created_by: "main_agent"
