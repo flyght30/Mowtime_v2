@@ -159,6 +159,42 @@ frontend:
           - Login screen displaying correctly with no errors
           - App is fully functional and ready for use!
           
+  - task: "HVAC Registration Flow"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(auth)/register.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Need to test HVAC business owner registration workflow with all required fields"
+        
+  - task: "HVAC Login Flow"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(auth)/login.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Need to test login with HVAC business owner credentials"
+        
+  - task: "HVAC Hub Access"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(tabs)/hvac-hub.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Need to verify HVAC Hub tab is visible and accessible after business owner login"
+          
 metadata:
   created_by: "main_agent"
   version: "1.0"
