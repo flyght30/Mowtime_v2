@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import ConditionalMapView, { ConditionalMarker as Marker, ConditionalPolyline as Polyline, PROVIDER_GOOGLE } from '../../components/ConditionalMapView';
 import { api } from '../../services/api';
 import { Card } from '../../components/ui';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
