@@ -76,6 +76,13 @@ class AuthService:
             business_id = generate_id("bus")
             role = UserRole.OWNER
 
+            # Determine vertical - default to HVAC if not specified or invalid
+            try:
+                vertical = ServiceVertical(data.vertical.lower()) if data.vertical else ServiceVertical.HVAC
+            except ValueError:
+                logger.warning(f"Invalid vertical '{data.vertical}', defaulting to HVAC")
+                vertical = ServiceVertical.HVAC
+
             business = Business(
                 business_id=business_id,
                 owner_id="",  # Will update after user created
@@ -89,7 +96,7 @@ class AuthService:
                 timezone=data.timezone,
                 plan=BusinessPlan.FREE,
                 subscription_status=SubscriptionStatus.TRIAL,
-                vertical=ServiceVertical.LAWN_CARE
+                vertical=vertical
             )
 
         # Create user
