@@ -84,7 +84,7 @@ export default function RouteView({
   onClose,
   onRefresh,
 }: RouteViewProps) {
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const [loading, setLoading] = useState(true);
   const [routeData, setRouteData] = useState<RouteData | null>(null);
   const [optimizeResult, setOptimizeResult] = useState<OptimizeResult | null>(null);
@@ -278,7 +278,7 @@ export default function RouteView({
           <>
             {/* Map */}
             <View style={styles.mapContainer}>
-              <MapView
+              <ConditionalMapView
                 ref={mapRef}
                 style={styles.map}
                 provider={PROVIDER_GOOGLE}
@@ -291,7 +291,7 @@ export default function RouteView({
               >
                 {getDisplayStops().map(renderStopMarker)}
                 {renderRoutePolyline()}
-              </MapView>
+              </ConditionalMapView>
 
               {/* Map Legend */}
               <View style={styles.legend}>
