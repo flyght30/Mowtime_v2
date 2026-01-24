@@ -39,7 +39,7 @@ export default function DispatchMapView({
   onJobPress,
   refreshTrigger,
 }: DispatchMapViewProps) {
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const [loading, setLoading] = useState(true);
   const [mapData, setMapData] = useState<MapData | null>(null);
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
@@ -226,7 +226,7 @@ export default function DispatchMapView({
 
   return (
     <View style={styles.container}>
-      <MapView
+      <ConditionalMapView
         ref={mapRef}
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
@@ -234,11 +234,10 @@ export default function DispatchMapView({
         showsUserLocation={false}
         showsMyLocationButton={false}
         showsCompass={true}
-        toolbarEnabled={false}
       >
         {mapData?.technicians.map(renderTechMarker)}
         {mapData?.jobs.map(renderJobMarker)}
-      </MapView>
+      </ConditionalMapView>
 
       {/* Legend */}
       <View style={styles.legend}>
