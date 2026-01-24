@@ -210,7 +210,10 @@ export default function LoadCalculator() {
       };
 
       const res = await hvacApi.calculateLoad(input);
+      console.log('📊 Calculate Load Response:', JSON.stringify(res, null, 2));
+      
       if (res.success && res.data) {
+        console.log('✅ Result has recommended_equipment:', res.data.recommended_equipment?.length || 0);
         setResult(res.data);
         setStep('results');
       } else {
