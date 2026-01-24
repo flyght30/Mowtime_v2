@@ -580,6 +580,291 @@ class QuickBooksService(BaseIntegrationService):
         """Get expense accounts"""
         return await self.get_accounts("Expense")
 
+    # Items/Services Sync
+
+    async def sync_items(self) -> Dict[str, int]:
+        """Sync service items to QuickBooks"""
+        await self.update_sync_status(
+            in_progress=True,
+            operation="Syncing items to QuickBooks"
+        )
+
+        results = {"pushed": 0, "pulled": 0, "errors": 0}
+
+        try:
+            # Get integration settings
+            integration = await self.get_integration()
+            settings = integration.get("settings", {})
+            sync_direction = settings.get("item_sync_direction", "push")
+
+            if sync_direction in ("push", "bidirectional"):
+                pushed = await self._push_items()
+                results["pushed"] = pushed
+
+            if sync_direction in ("pull", "bidirectional"):
+                pulled = await self._pull_items()
+                results["pulled"] = pulled
+
+            await self.update_sync_status(
+                in_progress=False,
+                items_synced=results["pushed"] + results["pulled"]
+            )
+
+        except Exception as e:
+            logger.error(f"Items sync failed: {str(e)}")
+            results["errors"] = 1
+            await self.update_sync_status(in_progress=False, error=str(e))
+
+        return results
+
+    async def _push_items(self) -> int:
+        """Push local services to QuickBooks as items"""
+        pushed = 0
+
+        # Get local services
+        services = await self.db.services.find({
+            "business_id": self.business_id,
+            "is_active": True
+        }).to_list(length=500)
+
+        for service in services:
+            mapping = await self.get_mapping(
+                SyncEntityType.ITEM,
+                service["service_id"]
+            )
+
+            if mapping:
+                # Check if needs update
+                current_hash = self.compute_hash(service)
+                if mapping.get("last_hash") != current_hash:
+                    if await self._update_qb_item(service, mapping["remote_id"]):
+                        await self.update_mapping(mapping["mapping_id"], current_hash)
+                        pushed += 1
+            else:
+                # Create new item
+                remote_id = await self._create_qb_item(service)
+                if remote_id:
+                    await self.create_mapping(
+                        SyncEntityType.ITEM,
+                        service["service_id"],
+                        remote_id,
+                        direction=SyncDirection.PUSH
+                    )
+                    pushed += 1
+
+        return pushed
+
+    async def _pull_items(self) -> int:
+        """Pull items from QuickBooks and create local services"""
+        pulled = 0
+
+        # Get remote items
+        remote_items = await self.get_remote_items()
+
+        for item in remote_items:
+            remote_id = item.get("Id")
+            if not remote_id:
+                continue
+
+            # Check if already mapped
+            mapping = await self.get_mapping_by_remote(SyncEntityType.ITEM, remote_id)
+            if mapping:
+                # Update local service if changed
+                local_service = await self.db.services.find_one({
+                    "service_id": mapping["local_id"]
+                })
+                if local_service:
+                    updated = await self._update_local_service(local_service, item)
+                    if updated:
+                        pulled += 1
+            else:
+                # Create new local service
+                service_id = await self._create_local_service(item)
+                if service_id:
+                    await self.create_mapping(
+                        SyncEntityType.ITEM,
+                        service_id,
+                        remote_id,
+                        direction=SyncDirection.PULL
+                    )
+                    pulled += 1
+
+        return pulled
+
+    async def _create_qb_item(self, service: dict) -> Optional[str]:
+        """Create service item in QuickBooks"""
+        # Get default income account
+        integration = await self.get_integration()
+        settings = integration.get("settings", {})
+        income_account_id = settings.get("default_income_account")
+
+        qb_item = self._transform_service_to_qb_item(service, income_account_id)
+
+        data, error = await self.api_request("POST", "/item", json=qb_item)
+
+        if data:
+            return data.get("Item", {}).get("Id")
+
+        if error:
+            logger.error(f"Failed to create QB item: {error}")
+
+        return None
+
+    async def _update_qb_item(self, service: dict, remote_id: str) -> bool:
+        """Update service item in QuickBooks"""
+        # First get current sync token
+        existing, error = await self.api_request("GET", f"/item/{remote_id}")
+
+        if not existing:
+            return False
+
+        sync_token = existing.get("Item", {}).get("SyncToken")
+
+        integration = await self.get_integration()
+        settings = integration.get("settings", {})
+        income_account_id = settings.get("default_income_account")
+
+        qb_item = self._transform_service_to_qb_item(service, income_account_id)
+        qb_item["Id"] = remote_id
+        qb_item["SyncToken"] = sync_token
+
+        data, error = await self.api_request("POST", "/item", json=qb_item)
+
+        return data is not None
+
+    def _transform_service_to_qb_item(
+        self,
+        service: dict,
+        income_account_id: Optional[str] = None
+    ) -> dict:
+        """Transform local service to QuickBooks item format"""
+        qb_item = {
+            "Name": service.get("name", "Service")[:100],
+            "Type": "Service",
+            "UnitPrice": service.get("base_price", 0),
+            "Taxable": service.get("taxable", False),
+            "Active": service.get("is_active", True)
+        }
+
+        # Add description
+        if service.get("description"):
+            qb_item["Description"] = service["description"][:4000]
+
+        # Add income account reference
+        if income_account_id:
+            qb_item["IncomeAccountRef"] = {"value": income_account_id}
+
+        # Add SKU if available
+        if service.get("sku"):
+            qb_item["Sku"] = service["sku"][:100]
+
+        return qb_item
+
+    async def get_remote_items(
+        self,
+        item_type: str = "Service",
+        since: Optional[datetime] = None
+    ) -> List[dict]:
+        """Get items from QuickBooks"""
+        items = []
+        start_position = 1
+        max_results = 100
+
+        while True:
+            query = f"SELECT * FROM Item WHERE Type = '{item_type}'"
+            if since:
+                query += f" AND MetaData.LastUpdatedTime >= '{since.isoformat()}'"
+            query += f" STARTPOSITION {start_position} MAXRESULTS {max_results}"
+
+            data, error = await self.api_request(
+                "GET",
+                "/query",
+                params={"query": query}
+            )
+
+            if not data:
+                break
+
+            batch = data.get("QueryResponse", {}).get("Item", [])
+            items.extend(batch)
+
+            if len(batch) < max_results:
+                break
+            start_position += max_results
+
+        return items
+
+    async def _create_local_service(self, qb_item: dict) -> Optional[str]:
+        """Create local service from QuickBooks item"""
+        import uuid
+
+        service_id = str(uuid.uuid4())
+
+        service = {
+            "service_id": service_id,
+            "business_id": self.business_id,
+            "name": qb_item.get("Name", "Imported Service"),
+            "description": qb_item.get("Description", ""),
+            "base_price": float(qb_item.get("UnitPrice", 0)),
+            "taxable": qb_item.get("Taxable", False),
+            "is_active": qb_item.get("Active", True),
+            "sku": qb_item.get("Sku"),
+            "source": "quickbooks",
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+
+        try:
+            await self.db.services.insert_one(service)
+            return service_id
+        except Exception as e:
+            logger.error(f"Failed to create local service: {str(e)}")
+            return None
+
+    async def _update_local_service(
+        self,
+        local_service: dict,
+        qb_item: dict
+    ) -> bool:
+        """Update local service from QuickBooks item data"""
+        update_data = {
+            "name": qb_item.get("Name", local_service.get("name")),
+            "description": qb_item.get("Description", local_service.get("description")),
+            "base_price": float(qb_item.get("UnitPrice", local_service.get("base_price", 0))),
+            "taxable": qb_item.get("Taxable", local_service.get("taxable", False)),
+            "is_active": qb_item.get("Active", local_service.get("is_active", True)),
+            "updated_at": datetime.utcnow()
+        }
+
+        if qb_item.get("Sku"):
+            update_data["sku"] = qb_item["Sku"]
+
+        try:
+            await self.db.services.update_one(
+                {"service_id": local_service["service_id"]},
+                {"$set": update_data}
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update local service: {str(e)}")
+            return False
+
+    async def get_item_for_invoice(
+        self,
+        service_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Get QuickBooks item reference for use in invoices"""
+        mapping = await self.get_mapping(SyncEntityType.ITEM, service_id)
+
+        if mapping:
+            return {
+                "ItemRef": {"value": mapping["remote_id"]},
+                "mapped": True
+            }
+
+        # Item not synced yet - return None to use generic line item
+        return None
+
     # Reporting
 
     async def get_sync_summary(self) -> Dict[str, Any]:
@@ -608,15 +893,18 @@ class QuickBooksService(BaseIntegrationService):
         summary = {
             "customers_synced": 0,
             "invoices_synced": 0,
-            "payments_synced": 0
+            "payments_synced": 0,
+            "items_synced": 0
         }
 
-        for item in counts:
-            if item["_id"] == "customer":
-                summary["customers_synced"] = item["count"]
-            elif item["_id"] == "invoice":
-                summary["invoices_synced"] = item["count"]
-            elif item["_id"] == "payment":
-                summary["payments_synced"] = item["count"]
+        for count_item in counts:
+            if count_item["_id"] == "customer":
+                summary["customers_synced"] = count_item["count"]
+            elif count_item["_id"] == "invoice":
+                summary["invoices_synced"] = count_item["count"]
+            elif count_item["_id"] == "payment":
+                summary["payments_synced"] = count_item["count"]
+            elif count_item["_id"] == "item":
+                summary["items_synced"] = count_item["count"]
 
         return summary

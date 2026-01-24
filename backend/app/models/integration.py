@@ -33,6 +33,7 @@ class SyncEntityType(str, Enum):
     INVOICE = "invoice"
     APPOINTMENT = "appointment"
     PAYMENT = "payment"
+    ITEM = "item"  # Service items for QuickBooks
 
 
 class IntegrationCredentials(BaseModel):
@@ -63,6 +64,10 @@ class IntegrationSettings(BaseModel):
     # Invoice sync (QuickBooks)
     auto_create_invoice: bool = False
     default_income_account: Optional[str] = None
+
+    # Items/Services sync (QuickBooks)
+    sync_items: bool = True
+    item_sync_direction: SyncDirection = SyncDirection.PUSH
 
     # Field mappings
     job_type_mapping: Dict[str, str] = Field(default_factory=dict)

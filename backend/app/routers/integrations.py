@@ -521,3 +521,58 @@ async def get_qb_summary(
 
     finally:
         await service.close()
+
+
+@router.post(
+    "/quickbooks/sync-items",
+    response_model=SingleResponse[dict],
+    summary="Sync service items to QuickBooks"
+)
+async def sync_qb_items(
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Sync service items to QuickBooks"""
+    service = QuickBooksService(db, ctx.business_id)
+
+    try:
+        results = await service.sync_items()
+        return SingleResponse(data={
+            "pushed": results.get("pushed", 0),
+            "pulled": results.get("pulled", 0),
+            "errors": results.get("errors", 0)
+        })
+
+    finally:
+        await service.close()
+
+
+@router.get(
+    "/quickbooks/items",
+    response_model=SingleResponse[dict],
+    summary="Get items from QuickBooks"
+)
+async def get_qb_items(
+    ctx: BusinessContext = Depends(get_business_context),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get service items from QuickBooks for mapping"""
+    service = QuickBooksService(db, ctx.business_id)
+
+    try:
+        items = await service.get_remote_items()
+        return SingleResponse(data={
+            "items": [
+                {
+                    "id": item.get("Id"),
+                    "name": item.get("Name"),
+                    "type": item.get("Type"),
+                    "price": item.get("UnitPrice"),
+                    "active": item.get("Active", True)
+                }
+                for item in items
+            ]
+        })
+
+    finally:
+        await service.close()
