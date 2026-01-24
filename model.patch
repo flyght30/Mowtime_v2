@@ -1,0 +1,150 @@
+diff --git a/test_result.md b/test_result.md
+index 8d48fba..3e30555 100644
+--- a/test_result.md
++++ b/test_result.md
+@@ -159,6 +159,69 @@ frontend:
+           - Login screen displaying correctly with no errors
+           - App is fully functional and ready for use!
+           
++  - task: "HVAC Registration Flow"
++    implemented: true
++    working: false
++    file: "/app/frontend/app/(auth)/register.tsx"
++    stuck_count: 1
++    priority: "high"
++    needs_retesting: false
++    status_history:
++      - working: "NA"
++        agent: "testing"
++        comment: "Need to test HVAC business owner registration workflow with all required fields"
++      - working: false
++        agent: "testing"
++        comment: |
++          CRITICAL ISSUE: Frontend form submission not working
++          - Registration form renders correctly and accepts all HVAC business data
++          - All fields fill properly (First Name, Last Name, Email, Phone, Password, Business Info)
++          - Business owner toggle works and shows business fields
++          - Submit button is visible but not clickable via automation
++          - Backend API works perfectly (tested via curl - returns tokens successfully)
++          - Issue is with frontend form submission mechanism, not backend
++          - Forms do not submit when Enter key is pressed or button is clicked
++        
++  - task: "HVAC Login Flow"
++    implemented: true
++    working: false
++    file: "/app/frontend/app/(auth)/login.tsx"
++    stuck_count: 1
++    priority: "high"
++    needs_retesting: false
++    status_history:
++      - working: "NA"
++        agent: "testing"
++        comment: "Need to test login with HVAC business owner credentials"
++      - working: false
++        agent: "testing"
++        comment: |
++          CRITICAL ISSUE: Frontend login form submission not working
++          - Login form renders correctly and accepts credentials
++          - Existing HVAC user credentials verified working via API (test_hvac_1769226270@example.com)
++          - Backend login API returns valid tokens and user data
++          - Frontend form does not submit when Enter key pressed or button clicked
++          - Same form submission issue as registration
++        
++  - task: "HVAC Hub Access"
++    implemented: true
++    working: "NA"
++    file: "/app/frontend/app/(tabs)/hvac-hub.tsx"
++    stuck_count: 0
++    priority: "high"
++    needs_retesting: true
++    status_history:
++      - working: "NA"
++        agent: "testing"
++        comment: "Need to verify HVAC Hub tab is visible and accessible after business owner login"
++      - working: "NA"
++        agent: "testing"
++        comment: |
++          Cannot test HVAC Hub access due to login form submission issue
++          - HVAC Hub component exists and is properly implemented
++          - Tab navigation logic is in place for business owners
++          - Cannot verify functionality until login/registration forms are fixed
++          
+ metadata:
+   created_by: "main_agent"
+   version: "1.0"
+@@ -167,11 +230,13 @@ metadata:
+   
+ test_plan:
+   current_focus:
+-    - "Backend and Frontend both running"
+-    - "Ready for feature development"
+-  stuck_tasks: []
++    - "HVAC Registration Flow"
++    - "HVAC Login Flow"
++  stuck_tasks:
++    - "HVAC Registration Flow"
++    - "HVAC Login Flow"
+   test_all: false
+-  test_priority: "high_first"
++  test_priority: "stuck_first"
+   
+ agent_communication:
+   - agent: "main"
+@@ -200,4 +265,54 @@ agent_communication:
+       - For best experience, test on actual mobile device or use Expo Go app
+       - HVAC Hub is available in the tabs navigation once logged in
+       
+-      Ready for next task!
+\ No newline at end of file
++      Ready for next task!
++      
++  - agent: "testing"
++    message: |
++      Starting HVAC registration and login workflow testing:
++      
++      TESTING PLAN:
++      1. Test HVAC business owner registration with all required fields
++      2. Verify successful registration and automatic login
++      3. Check HVAC Hub tab visibility and accessibility
++      4. Test logout and login with existing credentials
++      
++      APP URL: https://service-hub-334.preview.emergentagent.com
++      
++      Will test the complete workflow and report any issues found.
++      
++  - agent: "testing"
++    message: |
++      HVAC WORKFLOW TESTING COMPLETE - CRITICAL ISSUES FOUND
++      
++      🔴 CRITICAL FRONTEND FORM SUBMISSION ISSUE:
++      
++      PROBLEM SUMMARY:
++      - Both login and registration forms render correctly
++      - All form fields accept data properly (personal info, business info)
++      - Business owner toggle works and shows HVAC business fields
++      - Backend APIs work perfectly (verified via curl testing)
++      - CRITICAL: Form submission buttons are not clickable/functional
++      
++      DETAILED FINDINGS:
++      
++      ✅ BACKEND VERIFICATION (Working):
++      - Login API: POST /api/v1/auth/login returns valid tokens
++      - Registration API: POST /api/v1/auth/register creates HVAC business owners
++      - Existing user test_hvac_1769226270@example.com verified working
++      - New HVAC business registration successful via API
++      
++      ❌ FRONTEND ISSUES (Broken):
++      - Submit buttons timeout when clicked (30s timeout exceeded)
++      - Enter key submission does not work
++      - Forms stay on same page after submission attempts
++      - No API calls are made from frontend forms
++      
++      IMPACT:
++      - Users cannot register new HVAC businesses through UI
++      - Existing users cannot login through UI
++      - HVAC Hub cannot be tested due to login dependency
++      
++      RECOMMENDATION:
++      Main agent needs to investigate and fix frontend form submission mechanism.
++      The issue appears to be in the form event handling or button click handlers.
+\ No newline at end of file
