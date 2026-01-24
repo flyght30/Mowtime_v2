@@ -229,5 +229,32 @@ async def get_current_business_id(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "NO_BUSINESS", "message": "User is not associated with any business"}
+
+
+async def get_current_business(
+    current_user: User = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Dependency to get current user's business
+    """
+    from app.models.business import Business
+    
+    if not current_user.business_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "NO_BUSINESS", "message": "User is not associated with any business"}
+        )
+    
+    business_dict = await db.businesses.find_one({"business_id": current_user.business_id})
+    
+    if not business_dict:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "BUSINESS_NOT_FOUND", "message": "Business not found"}
+        )
+    
+    return Business(**business_dict)
+
         )
     return current_user.business_id
