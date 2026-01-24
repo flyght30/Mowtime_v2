@@ -7,9 +7,16 @@ import io
 import logging
 from datetime import datetime
 from typing import Optional
-from weasyprint import HTML, CSS
 
 logger = logging.getLogger(__name__)
+
+# Optional WeasyPrint import for PDF generation
+try:
+    from weasyprint import HTML, CSS
+    WEASYPRINT_AVAILABLE = True
+except ImportError:
+    WEASYPRINT_AVAILABLE = False
+    logger.warning("WeasyPrint not installed - PDF generation will not be available")
 
 
 class POPdfService:
@@ -32,6 +39,9 @@ class POPdfService:
         Returns:
             PDF bytes
         """
+        if not WEASYPRINT_AVAILABLE:
+            raise RuntimeError("WeasyPrint is not installed. Install with: pip install weasyprint")
+
         html_content = self._render_po_html(po, distributor, business)
         css = self._get_css()
 

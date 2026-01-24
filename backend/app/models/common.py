@@ -86,3 +86,39 @@ class TimestampMixin(BaseModel):
     """Mixin for simple timestamp fields"""
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+
+
+from typing import Generic, TypeVar, List
+
+T = TypeVar('T')
+
+
+class SingleResponse(BaseModel, Generic[T]):
+    """Standard response wrapper for single item"""
+    success: bool = True
+    data: Optional[T] = None
+    message: Optional[str] = None
+
+    model_config = ConfigDict(
+        json_encoders={
+            ObjectId: str,
+            datetime: lambda v: v.isoformat()
+        }
+    )
+
+
+class ListResponse(BaseModel, Generic[T]):
+    """Standard response wrapper for list of items"""
+    success: bool = True
+    data: List[T] = Field(default_factory=list)
+    total: int = 0
+    page: int = 1
+    page_size: int = 20
+    message: Optional[str] = None
+
+    model_config = ConfigDict(
+        json_encoders={
+            ObjectId: str,
+            datetime: lambda v: v.isoformat()
+        }
+    )

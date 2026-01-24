@@ -181,6 +181,25 @@ require_staff = require_roles(UserRole.OWNER, UserRole.ADMIN, UserRole.STAFF)
 require_any_authenticated = get_current_user
 
 
+async def get_current_business_id(
+    current_user: User = Depends(get_current_user)
+) -> str:
+    """
+    Get the business_id for the current authenticated user
+
+    Raises HTTPException if user has no business association
+    """
+    if not current_user.business_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "NO_BUSINESS_ACCESS",
+                "message": "User is not associated with any business"
+            }
+        )
+    return current_user.business_id
+
+
 class BusinessContext:
     """
     Context for business-scoped operations

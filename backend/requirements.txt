@@ -26,6 +26,6 @@ numpy>=1.26.0
 python-multipart>=0.0.9
 jq>=1.6.0
 typer>=0.9.0
-emergentintegrations==0.1.0
-weasyprint>=60.0
+# emergentintegrations==0.1.0  # Custom package - install separately if needed
+# weasyprint>=60.0  # Requires system deps - install separately for PDF generation
 python-dateutil>=2.8.2
