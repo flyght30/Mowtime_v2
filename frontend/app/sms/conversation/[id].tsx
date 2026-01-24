@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   errorText: {
-    fontSize: Typography.sizes.md,
+    fontSize: Typography.fontSize.md,
     color: Colors.textSecondary,
     marginTop: Spacing.md,
   },
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: Colors.white,
-    fontSize: Typography.sizes.md,
+    fontSize: Typography.fontSize.md,
     fontWeight: '600',
   },
   customerInfo: {
@@ -298,12 +298,12 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.md,
   },
   customerName: {
-    fontSize: Typography.sizes.md,
+    fontSize: Typography.fontSize.md,
     fontWeight: '600',
     color: Colors.text,
   },
   customerPhone: {
-    fontSize: Typography.sizes.sm,
+    fontSize: Typography.fontSize.sm,
     color: Colors.textSecondary,
     marginTop: 2,
   },
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.md,
   },
   dateHeaderText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.fontSize.xs,
     color: Colors.textSecondary,
     backgroundColor: Colors.surface,
     paddingHorizontal: Spacing.md,
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   messageText: {
-    fontSize: Typography.sizes.md,
+    fontSize: Typography.fontSize.md,
     color: Colors.text,
     lineHeight: 22,
   },
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   timeText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.fontSize.xs,
     color: Colors.textSecondary,
   },
   outboundTime: {
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xxl * 2,
   },
   emptyText: {
-    fontSize: Typography.sizes.md,
+    fontSize: Typography.fontSize.md,
     color: Colors.textSecondary,
     marginTop: Spacing.md,
   },
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    fontSize: Typography.sizes.md,
+    fontSize: Typography.fontSize.md,
     color: Colors.text,
     maxHeight: 100,
     borderWidth: 1,
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   charCountText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.fontSize.xs,
     color: Colors.textSecondary,
   },
 });
