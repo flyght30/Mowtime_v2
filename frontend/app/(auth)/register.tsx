@@ -36,6 +36,7 @@ export default function RegisterScreen() {
     business_city: '',
     business_state: '',
     business_zip: '',
+    vertical: 'hvac', // Default to HVAC vertical
   });
 
   const [confirmPassword, setConfirmPassword] = useState('');
