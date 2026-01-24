@@ -203,8 +203,9 @@ metadata:
   
 test_plan:
   current_focus:
-    - "Backend and Frontend both running"
-    - "Ready for feature development"
+    - "HVAC Registration Flow"
+    - "HVAC Login Flow"
+    - "HVAC Hub Access"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
