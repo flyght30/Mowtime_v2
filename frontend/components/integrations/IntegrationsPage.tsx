@@ -19,6 +19,7 @@ import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../consta
 import api from '../../services/api';
 import IntegrationCard from './IntegrationCard';
 import WebhookCard from './WebhookCard';
+import WebhookForm from './WebhookForm';
 
 interface Integration {
   integration_id: string;
@@ -55,6 +56,8 @@ export default function IntegrationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'integrations' | 'webhooks'>('integrations');
+  const [showWebhookForm, setShowWebhookForm] = useState(false);
+  const [editingWebhook, setEditingWebhook] = useState<Webhook | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -84,32 +87,18 @@ export default function IntegrationsPage() {
   };
 
   const handleAddWebhook = () => {
-    Alert.prompt(
-      'New Webhook',
-      'Enter the webhook URL:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Create',
-          onPress: async (url) => {
-            if (!url?.trim()) return;
-            try {
-              await api.post('/api/v1/webhooks', {
-                url: url.trim(),
-                events: ['job.created', 'job.completed', 'customer.created'],
-              });
-              loadData();
-              Alert.alert('Success', 'Webhook created');
-            } catch (err) {
-              Alert.alert('Error', 'Failed to create webhook');
-            }
-          },
-        },
-      ],
-      'plain-text',
-      '',
-      'url'
-    );
+    setEditingWebhook(null);
+    setShowWebhookForm(true);
+  };
+
+  const handleEditWebhook = (webhook: Webhook) => {
+    setEditingWebhook(webhook);
+    setShowWebhookForm(true);
+  };
+
+  const handleCloseWebhookForm = () => {
+    setShowWebhookForm(false);
+    setEditingWebhook(null);
   };
 
   const connectedIntegrations = integrations.filter((i) => i.is_active);
@@ -228,7 +217,7 @@ export default function IntegrationsPage() {
               webhooks.map((webhook) => (
                 <WebhookCard
                   key={webhook.subscription_id}
-                  webhook={webhook}
+                  webhook={webhook as any}
                   onRefresh={loadData}
                 />
               ))
@@ -259,6 +248,14 @@ export default function IntegrationsPage() {
           </>
         )}
       </ScrollView>
+
+      {/* Webhook Form Modal */}
+      <WebhookForm
+        visible={showWebhookForm}
+        onClose={handleCloseWebhookForm}
+        onSave={loadData}
+        webhook={editingWebhook}
+      />
     </View>
   );
 }
